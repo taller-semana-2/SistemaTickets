@@ -1,4 +1,5 @@
 services:
+  # --- Base Ticket Service ---
   db:
     image: postgres:16-alpine
     container_name: sistema-tickets-db
@@ -48,5 +49,50 @@ services:
     stdin_open: true
     tty: true
 
+  # --- RabbitMQ para eventos ---
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  # --- Assessment Service ---
+  assessment-db:
+    image: postgres:16-alpine
+    container_name: assessment-db
+    environment:
+      POSTGRES_DB: assessment_db
+      POSTGRES_USER: assessment_user
+      POSTGRES_PASSWORD: assessment_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - assessment_db_data:/var/lib/postgresql/data
+
+  assessment-service:
+    build:
+      context: ./backend/assignment-service
+    container_name: assessment-service-backend
+    working_dir: /app
+    volumes:
+      - ./backend/assignment-service:/app
+    command: >
+      sh -c "python manage.py migrate &&
+             celery -A assessment_service worker --loglevel=info"
+    environment:
+      DJANGO_SETTINGS_MODULE: assessment_service.settings
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      POSTGRES_DB: assessment_db
+      POSTGRES_USER: assessment_user
+      POSTGRES_PASSWORD: assessment_pass
+      POSTGRES_HOST: assessment-db
+      POSTGRES_PORT: "5432"
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      - assessment-db
+      - rabbitmq
+
 volumes:
   db_data:
+  assessment_db_data:
