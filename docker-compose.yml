@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+	db:
+		image: postgres:16-alpine
+		container_name: sistema-tickets-db
+		environment:
+			POSTGRES_DB: sistema_tickets
+			POSTGRES_USER: postgres
+			POSTGRES_PASSWORD: postgres
+		ports:
+			- "5432:5432"
+		volumes:
+			- db_data:/var/lib/postgresql/data
+
+	backend:
+		build:
+			context: ./backend/ticket-service
+		container_name: sistema-tickets-backend
+		working_dir: /app
+		volumes:
+			- ./backend/ticket-service:/app
+		command: >
+			sh -c "python manage.py migrate &&
+						 python manage.py runserver 0.0.0.0:8000"
+		environment:
+			DJANGO_SETTINGS_MODULE: ticket_service.settings
+			DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+			POSTGRES_DB: sistema_tickets
+			POSTGRES_USER: postgres
+			POSTGRES_PASSWORD: postgres
+			POSTGRES_HOST: db
+			POSTGRES_PORT: "5432"
+		depends_on:
+			- db
+		ports:
+			- "8000:8000"
+
+	frontend:
+		image: node:20-alpine
+		container_name: sistema-tickets-frontend
+		working_dir: /app
+		volumes:
+			- ./frontend:/app
+		command: sh -c "npm install && npm start"
+		environment:
+			CHOKIDAR_USEPOLLING: "true"
+		ports:
+			- "3000:3000"
+		stdin_open: true
+		tty: true
+		profiles:
+			- frontend
+
+volumes:
+	db_data:
