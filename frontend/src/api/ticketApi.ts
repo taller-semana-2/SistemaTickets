@@ -1,47 +1,39 @@
-import type { Ticket } from '../types/ticket';
-import type { CreateTicketDTO } from '../types/ticket';
+import type { Ticket, CreateTicketDTO } from '../types/ticket';
 
-//para cuando tengamos los endpoints realeas 
-// Cambias setTimeout por fetch / axios
-// Mantienes mismos métodos y tipos
-
-let tickets: Ticket[] = [
-  {
-    id: 1,
-    title: 'Error en login',
-    description: 'El usuario no puede iniciar sesión',
-    status: 'open',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    title: 'Pantalla en blanco',
-    description: 'La app no carga en producción',
-    status: 'in_progress',
-    createdAt: new Date().toISOString(),
-  },
-];
+const API_URL = 'http://localhost:8000/api/tickets/';
 
 export const ticketApi = {
+  /**
+   * Obtener todos los tickets
+   */
   getTickets: async (): Promise<Ticket[]> => {
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(tickets), 500);
-    });
+    const response = await fetch(API_URL);
+
+    if (!response.ok) {
+      throw new Error('Error al obtener los tickets');
+    }
+
+    const data: Ticket[] = await response.json();
+    return data;
   },
 
+  /**
+   * Crear un nuevo ticket
+   */
   createTicket: async (data: CreateTicketDTO): Promise<Ticket> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const newTicket: Ticket = {
-          id: tickets.length + 1,
-          status: 'open',
-          createdAt: new Date().toISOString(),
-          ...data,
-        };
-
-        tickets.push(newTicket);
-        resolve(newTicket);
-      }, 500);
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
     });
+
+    if (!response.ok) {
+      throw new Error('Error al crear el ticket');
+    }
+
+    const newTicket: Ticket = await response.json();
+    return newTicket;
   },
 };
