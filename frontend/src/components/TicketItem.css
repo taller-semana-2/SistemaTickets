@@ -1,0 +1,22 @@
+.ticket-item {
+  border: 1px solid #ccc;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+.ticket-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  color: #333;
+}
+
+.ticket-description {
+  margin: 0 0 0.5rem 0;
+  color: #555;
+}
+.ticket-status {
+  font-size: 0.875rem;
+  color: #777;
+}
