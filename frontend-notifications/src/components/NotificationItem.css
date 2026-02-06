@@ -1,0 +1,113 @@
+.notification-item {
+  position: relative; 
+  display: flex;
+  flex-direction: column;
+  background-color: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 1.5rem;
+  border-radius: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden; 
+  margin-bottom: 1rem;
+}
+
+/* --- EFECTO UNREAD (No leída) --- */
+.notification-item.unread {
+  background-color: #1e293b;
+  border-left: 4px solid #6366f1; /* Luz lateral sólida */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* El punto azul al lado del título */
+.unread .ticket-title::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background-color: #3b82f6;
+  border-radius: 50%;
+  margin-right: 10px;
+  box-shadow: 0 0 8px #3b82f6;
+  animation: pulse-dot 2s infinite;
+}
+
+/* Resplandor sutil de fondo para las no leídas */
+.unread::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.05) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* --- EFECTO READ (Leída) --- */
+.notification-item.read {
+  opacity: 0.6;
+  background-color: rgba(15, 23, 42, 0.5);
+  border-left: 4px solid transparent;
+  filter: grayscale(0.5);
+}
+
+.notification-item:hover {
+  transform: translateX(5px); /* Se mueve un poco a la derecha en lugar de subir */
+  background-color: #243147;
+}
+
+/* --- ELEMENTOS INTERNOS --- */
+.notification-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.ticket-title {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+.ticket-description {
+  margin: 0 0 1.25rem 0;
+  color: #94a3b8;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.time-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.calendar-icon {
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.btn-read {
+  background: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  padding: 0.5rem 1rem;
+  border-radius: 50px; /* Estilo píldora como la navbar */
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-read:hover {
+  background: #3b82f6;
+  color: white;
+}
+
+/* Animación para el punto */
+@keyframes pulse-dot {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
