@@ -1,34 +1,58 @@
 import type Notification from '../interface/Notification';
 import './NotificationItem.css';
 
-const NotificationItem = ({ notification, onMarkAsRead }: { notification: Notification; onMarkAsRead: (id: string) => void }) => {
+interface Props {
+  notification: Notification;
+  onMarkAsRead: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+const NotificationItem = ({
+  notification,
+  onMarkAsRead,
+  onDelete,
+}: Props) => {
   const { id, title, message, read, createdAt } = notification;
 
   return (
     <div className={`notification-item ${read ? 'read' : 'unread'}`}>
       <div className="notification-content">
         <div className="notification-header">
-          <h4 className="ticket-title">{title}</h4>
+          <h4 className="notification-title">{title}</h4>
         </div>
-        
-        <p className="ticket-description">{message}</p>
 
-        <div className="ticket-footer">
+        <p className="notification-description">{message}</p>
+
+        <div className="notification-footer">
           <div className="time-info">
             <span className="calendar-icon">📅</span>
-            <small className="ticket-status">
-              {new Date(createdAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+            <small className="time-text">
+              {new Date(createdAt).toLocaleString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                day: '2-digit',
+                month: '2-digit',
+              })}
             </small>
           </div>
-          
-          {!read && (
+
+          <div className="actions">
+            {!read && (
+              <button
+                className="btn-read"
+                onClick={() => onMarkAsRead(id)}
+              >
+                Marcar como leída
+              </button>
+            )}
+
             <button
-              className="btn-read"
-              onClick={() => onMarkAsRead(id)}
+              className="btn-delete"
+              onClick={() => onDelete(id)}
             >
-              Marcar como leída
+              Eliminar
             </button>
-          )}
+          </div>
         </div>
       </div>
     </div>

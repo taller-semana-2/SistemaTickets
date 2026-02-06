@@ -36,4 +36,33 @@ export const ticketApi = {
     const newTicket: Ticket = await response.json();
     return newTicket;
   },
+
+  deleteTicket: async (id: number): Promise<void> => {
+    const response = await fetch(`${API_URL}${id}/`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al eliminar el ticket');
+    }
+  },
+
+  updateStatus: async (id: number, status: string): Promise<Ticket> => {
+  const response = await fetch(`${API_URL}${id}/status/`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Error al actualizar el estado del ticket');
+  }
+
+  const updatedTicket: Ticket = await response.json();
+  return updatedTicket;
+},
+
+
 };

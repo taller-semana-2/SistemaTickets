@@ -1,4 +1,4 @@
-export type TicketStatus = 'open' | 'in_progress' | 'closed';
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
 
 export interface Ticket {
   id: number;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { notificationApi } from '../api/notificationApi';
+import { notificationsApi } from '../api/notificationApi';
 import NotificationItem from '../components/NotificationItem';
 import type Notification from '../interface/Notification';
 import './NotificationList.css'
@@ -11,7 +11,7 @@ const NotificationList = () => {
   const loadNotifications = async () => {
     try {
       setLoading(true);
-      const data = await notificationApi.getNotifications();
+      const data = await notificationsApi.getNotifications();
       setNotifications(data.map(n => ({ ...n, id: String(n.id) })));
     } catch (error) {
       console.error("Error cargando notificaciones", error);
@@ -25,12 +25,12 @@ const NotificationList = () => {
   }, []);
 
   const handleMarkAsRead = async (id: string) => {
-    await notificationApi.markAsRead(Number(id));
+    await notificationsApi.markAsRead(id);
     loadNotifications();
   };
 
   const handleClearAll = async () => {
-    await notificationApi.clearAll(); 
+    await notificationsApi.clearAll(); 
     setNotifications([]);
   };
 
@@ -41,6 +41,27 @@ const NotificationList = () => {
       </div>
     );
   }
+
+  const handleDelete = async (id: string) => {
+  const confirmed = window.confirm(
+    '¿Seguro que deseas eliminar esta notificación?'
+  );
+
+  if (!confirmed) return;
+
+  try {
+    await notificationsApi.deleteNotification(id);
+
+    // actualización optimista
+    setNotifications((prev) =>
+      prev.filter((n) => n.id !== id)
+    );
+  } catch (error) {
+    console.error('Error eliminando notificación', error);
+    alert('No se pudo eliminar la notificación');
+  }
+};
+
 
   return (
     <div className="page-container">
@@ -74,6 +95,7 @@ const NotificationList = () => {
               key={notification.id}
               notification={notification}
               onMarkAsRead={handleMarkAsRead}
+              onDelete={handleDelete}
             />
           ))}
         </div>

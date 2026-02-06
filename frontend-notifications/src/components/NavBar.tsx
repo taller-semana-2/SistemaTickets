@@ -1,18 +1,19 @@
 import { NavLink } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { notificationApi } from '../api/notificationApi';
+import { notificationsApi } from '../api/notificationApi';
 import './NavBar.css';
+
 
 const Navbar = () => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const loadUnreadCount = async () => {
     try {
-      const notifications = await notificationApi.getNotifications();
+      const notifications = await notificationsApi.getNotifications();
       const unread = notifications.filter((n) => !n.read).length;
       setUnreadCount(unread);
     } catch (error) {
-      console.error("Error cargando notificaciones", error);
+      console.error('Error cargando notificaciones', error);
     }
   };
 
@@ -22,15 +23,14 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
-      {/* Sección de Marca/Título */}
       <div className="navbar__brand">
         <NavLink to="/notifications" className="navbar__logo">
           Sistema de Notificaciones
         </NavLink>
       </div>
 
-      {/* Lista de Enlaces */}
       <ul className="navbar__links">
+        {/* Rutas internas */}
         <li>
           <NavLink
             to="/notifications"
@@ -54,6 +54,18 @@ const Navbar = () => {
           >
             Asignaciones
           </NavLink>
+        </li>
+
+        {/* Cambio de app */}
+        <li className="navbar__separator" />
+
+        <li>
+         <a
+  href="http://localhost:5173"
+  className="navbar__link navbar__external"
+>
+  🎫 Tickets
+</a>
         </li>
       </ul>
     </nav>
