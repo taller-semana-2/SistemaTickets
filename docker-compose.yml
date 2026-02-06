@@ -49,6 +49,23 @@ services:
     stdin_open: true
     tty: true
 
+  frontend-notifications:
+    image: node:20-alpine
+    container_name: sistema-notifications-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend-notifications:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "5174:5173"
+    stdin_open: true
+    tty: true
+    depends_on:
+      - notification-service
+
   # --- RabbitMQ para eventos ---
   rabbitmq:
     image: rabbitmq:3-management
@@ -79,6 +96,7 @@ services:
       - ./backend/assignment-service:/app
     command: >
       sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000 &
              celery -A assessment_service worker --loglevel=info"
     environment:
       DJANGO_SETTINGS_MODULE: assessment_service.settings
@@ -92,6 +110,31 @@ services:
     depends_on:
       - assessment-db
       - rabbitmq
+    ports:
+      - "8002:8000"
+
+  # Consumer de RabbitMQ para assessment-service
+  assessment-consumer:
+    build:
+      context: ./backend/assignment-service
+    container_name: assessment-consumer
+    working_dir: /app
+    volumes:
+      - ./backend/assignment-service:/app
+    command: python messaging/consumer.py
+    environment:
+      DJANGO_SETTINGS_MODULE: assessment_service.settings
+      POSTGRES_DB: assessment_db
+      POSTGRES_USER: assessment_user
+      POSTGRES_PASSWORD: assessment_pass
+      POSTGRES_HOST: assessment-db
+      POSTGRES_PORT: "5432"
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      - assessment-db
+      - rabbitmq
+      - assessment-service
+    restart: on-failure
 
   # --- Notification DB (separate DB para notification-service) ---
   notification-db:
@@ -113,6 +156,9 @@ services:
     working_dir: /app
     volumes:
       - ./backend/notification-service:/app
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
     environment:
       DJANGO_SETTINGS_MODULE: notification_service.settings
       POSTGRES_DB: notifications_db
@@ -126,6 +172,31 @@ services:
       - rabbitmq
     ports:
       - "8001:8000"
+
+  # Consumer de RabbitMQ para notification-service
+  notification-consumer:
+    build:
+      context: ./backend/notification-service
+    container_name: notification-consumer
+    working_dir: /app
+    volumes:
+      - ./backend/notification-service:/app
+    command: python notifications/messaging/consumer.py
+    environment:
+      DJANGO_SETTINGS_MODULE: notification_service.settings
+      POSTGRES_DB: notifications_db
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notif_pass
+      POSTGRES_HOST: notification-db
+      POSTGRES_PORT: "5432"
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      - notification-db
+      - rabbitmq
+      - notification-service
+    restart: on-failure
+
+
 
 volumes:
   db_data:

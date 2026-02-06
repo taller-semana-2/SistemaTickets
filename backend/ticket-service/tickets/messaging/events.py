@@ -2,27 +2,27 @@
 import pika
 import json
 
-RABBIT_HOST = "rabbitmq"  # Nombre del servicio RabbitMQ en docker-compose
-QUEUE_NAME = "ticket_created"
+RABBIT_HOST = "rabbitmq"
+EXCHANGE_NAME = "ticket_events"
 
 def publish_ticket_created(ticket_id):
-    """Publica un evento ticket.created en RabbitMQ"""
+    """Publica un evento ticket.created en RabbitMQ usando exchange fanout"""
     connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBIT_HOST))
     channel = connection.channel()
     
-    # Crear la cola si no existe
-    channel.queue_declare(queue=QUEUE_NAME, durable=True)
+    # Crear exchange fanout (broadcast a todas las colas suscritas)
+    channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type='fanout', durable=True)
     
-    # Mensaje JSON con los datos mínimos del ticket
+    # Mensaje JSON con los datos del ticket
     message = json.dumps({"ticket_id": ticket_id})
     
-    # Publicar mensaje persistente
+    # Publicar al exchange (no a una cola específica)
     channel.basic_publish(
-        exchange="",
-        routing_key=QUEUE_NAME,
+        exchange=EXCHANGE_NAME,
+        routing_key='',  # Ignorado en fanout
         body=message,
-        properties=pika.BasicProperties(delivery_mode=2)  # Hace que el mensaje sea persistente
+        properties=pika.BasicProperties(delivery_mode=2)
     )
     
     connection.close()
-    print(f"Evento ticket.created publicado: {ticket_id}")
+    print(f"Evento ticket.created publicado al exchange: {ticket_id}")
