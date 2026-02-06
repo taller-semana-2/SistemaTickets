@@ -1,43 +1,41 @@
-let notifications = [
-  {
-    id: 1,
-    title: 'Ticket asignado',
-    message: 'Se te asignó el ticket #123',
-    read: false,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    title: 'Ticket actualizado',
-    message: 'El ticket #122 cambió de estado',
-    read: true,
-    createdAt: new Date().toISOString(),
-  },
-];
-
-// simulador de latencia real
-const delay = (ms = 500) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+const API_URL = 'http://localhost:8001/api/notifications/';
 
 export const notificationApi = {
   async getNotifications() {
-    await delay();
-    return [...notifications];
+    const response = await fetch(API_URL);
+
+    if (!response.ok) {
+      throw new Error('Error obteniendo notificaciones');
+    }
+
+    return await response.json();
   },
 
-  async markAsRead(id: number) {
-    await delay();
+  async markAsRead(id: string | number) {
+    const response = await fetch(`${API_URL}${id}/`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ read: true }),
+    });
 
-    notifications = notifications.map((n) =>
-      n.id === id ? { ...n, read: true } : n
-    );
+    if (!response.ok) {
+      throw new Error('Error marcando notificación como leída');
+    }
 
-    return { success: true };
+    return await response.json();
   },
 
   async clearAll() {
-    await delay();
-    notifications = [];
+    const response = await fetch(API_URL, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      throw new Error('Error eliminando notificaciones');
+    }
+
     return { success: true };
   },
 };
