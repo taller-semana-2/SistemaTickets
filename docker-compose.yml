@@ -1,0 +1,133 @@
+services:
+  # --- Base Ticket Service ---
+  db:
+    image: postgres:16-alpine
+    container_name: sistema-tickets-db
+    environment:
+      POSTGRES_DB: sistema_tickets
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend/ticket-service
+    container_name: sistema-tickets-backend
+    working_dir: /app
+    volumes:
+      - ./backend/ticket-service:/app
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: ticket_service.settings
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      POSTGRES_DB: sistema_tickets
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: node:20-alpine
+    container_name: sistema-tickets-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm install --legacy-peer-deps && npm run dev"
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "5173:5173"
+    stdin_open: true
+    tty: true
+
+  # --- RabbitMQ para eventos ---
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  # --- Assessment Service ---
+  assessment-db:
+    image: postgres:16-alpine
+    container_name: assessment-db
+    environment:
+      POSTGRES_DB: assessment_db
+      POSTGRES_USER: assessment_user
+      POSTGRES_PASSWORD: assessment_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - assessment_db_data:/var/lib/postgresql/data
+
+  assessment-service:
+    build:
+      context: ./backend/assignment-service
+    container_name: assessment-service-backend
+    working_dir: /app
+    volumes:
+      - ./backend/assignment-service:/app
+    command: >
+      sh -c "python manage.py migrate &&
+             celery -A assessment_service worker --loglevel=info"
+    environment:
+      DJANGO_SETTINGS_MODULE: assessment_service.settings
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      POSTGRES_DB: assessment_db
+      POSTGRES_USER: assessment_user
+      POSTGRES_PASSWORD: assessment_pass
+      POSTGRES_HOST: assessment-db
+      POSTGRES_PORT: "5432"
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      - assessment-db
+      - rabbitmq
+
+  # --- Notification DB (separate DB para notification-service) ---
+  notification-db:
+    image: postgres:16-alpine
+    container_name: notification-db
+    environment:
+      POSTGRES_DB: notifications_db
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notif_pass
+    ports:
+      - "5434:5432"
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+
+  notification-service:
+    build:
+      context: ./backend/notification-service
+    container_name: notification-service
+    working_dir: /app
+    volumes:
+      - ./backend/notification-service:/app
+    environment:
+      DJANGO_SETTINGS_MODULE: notification_service.settings
+      POSTGRES_DB: notifications_db
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notif_pass
+      POSTGRES_HOST: notification-db
+      POSTGRES_PORT: "5432"
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      - notification-db
+      - rabbitmq
+    ports:
+      - "8001:8000"
+
+volumes:
+  db_data:
+  assessment_db_data:
+  notification_db_data:
