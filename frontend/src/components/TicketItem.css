@@ -1,0 +1,86 @@
+.ticket-item {
+  /* Fondo ligeramente más claro que el de la página para que resalte */
+  background: rgba(30, 41, 59, 0.7); 
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 180px; /* Asegura un tamaño consistente */
+  transition: all 0.3s ease;
+}
+
+.ticket-item:hover {
+  border-color: rgba(239, 68, 68, 0.3);
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+.ticket-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #f8fafc; /* Blanco suave */
+}
+
+.ticket-description {
+  margin: 0 0 1.5rem 0;
+  color: #94a3b8; /* Gris azulado para el texto secundario */
+  line-height: 1.6;
+  font-size: 0.95rem;
+  flex-grow: 1; /* Empuja el footer hacia abajo */
+}
+
+/* --- FOOTER: La clave del posicionamiento --- */
+.ticket-footer {
+  display: flex;
+  justify-content: space-between; /* Estado a la izquierda, Botón a la derecha */
+  align-items: center;
+  margin-top: auto; /* Garantiza que siempre esté al fondo */
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.status-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.3rem 0.8rem;
+  border-radius: 50px;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+}
+
+/* Estilos específicos para el botón eliminar */
+.delete-button {
+  background: rgba(239, 68, 68, 0.1); 
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.delete-button .icon {
+  font-size: 1rem;
+  filter: grayscale(1); /* Hace que el emoji sea sutil */
+}
+
+.delete-button:hover {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+}
+
+.delete-button:hover .icon {
+  filter: grayscale(0);
+}
