@@ -1,9 +1,9 @@
-# backend/ticket-service/messaging/events.py
 import pika
 import json
+import os
 
-RABBIT_HOST = "rabbitmq"
-EXCHANGE_NAME = "ticket_events"
+RABBIT_HOST = os.environ.get('RABBITMQ_HOST')
+EXCHANGE_NAME = os.environ.get('RABBITMQ_EXCHANGE_NAME')
 
 def publish_ticket_created(ticket_id):
     """Publica un evento ticket.created en RabbitMQ usando exchange fanout"""
