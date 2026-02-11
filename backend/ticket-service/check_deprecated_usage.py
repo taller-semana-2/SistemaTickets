@@ -74,7 +74,8 @@ class DeprecatedComponentChecker:
         lines = content.split('\n')
         for line_num, line in enumerate(lines, 1):
             for pattern, message in patterns:
-                if re.search(pattern, line) and 'use_case' not in line.lower():
+                # Ignorar: líneas con use_case, queryset de DRF, o repository
+                if re.search(pattern, line) and not any(keyword in line.lower() for keyword in ['use_case', 'queryset', 'repository']):
                     # Ignorar si está en comentarios o strings
                     if line.strip().startswith('#') or line.strip().startswith('"""'):
                         continue

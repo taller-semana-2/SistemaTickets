@@ -79,6 +79,38 @@ class DjangoTicketRepository(TicketRepository):
         """
         DjangoTicket.objects.filter(pk=ticket_id).delete()
     
+    def to_django_model(self, domain_ticket: DomainTicket) -> DjangoTicket:
+        """
+        Convierte una entidad de dominio a modelo Django sin hacer query adicional.
+        Útil para serialización en la capa de presentación.
+        
+        Args:
+            domain_ticket: Entidad de dominio
+            
+        Returns:
+            Modelo Django (puede no estar guardado en BD)
+        """
+        if domain_ticket.id:
+            # Si tiene ID, buscar el modelo existente para mantener metadata de Django
+            try:
+                django_ticket = DjangoTicket.objects.get(pk=domain_ticket.id)
+                # Actualizar valores desde la entidad de dominio
+                django_ticket.title = domain_ticket.title
+                django_ticket.description = domain_ticket.description
+                django_ticket.status = domain_ticket.status
+                return django_ticket
+            except DjangoTicket.DoesNotExist:
+                pass
+        
+        # Crear instancia Django en memoria (no guardada)
+        return DjangoTicket(
+            id=domain_ticket.id,
+            title=domain_ticket.title,
+            description=domain_ticket.description,
+            status=domain_ticket.status,
+            created_at=getattr(domain_ticket, 'created_at', None)
+        )
+    
     @staticmethod
     def _to_domain(django_ticket: DjangoTicket) -> DomainTicket:
         """

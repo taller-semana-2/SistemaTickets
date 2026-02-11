@@ -77,9 +77,9 @@ class TicketViewSet(viewsets.ModelViewSet):
             # Ejecutar caso de uso (maneja dominio, persistencia y eventos)
             domain_ticket = self.create_ticket_use_case.execute(command)
             
-            # Actualizar el serializer con la instancia Django para la respuesta
+            # Convertir entidad de dominio a modelo Django para serialización
             # (DRF espera una instancia del modelo Django)
-            django_ticket = Ticket.objects.get(pk=domain_ticket.id)
+            django_ticket = self.repository.to_django_model(domain_ticket)
             serializer.instance = django_ticket
             
         except InvalidTicketData as e:
@@ -112,8 +112,8 @@ class TicketViewSet(viewsets.ModelViewSet):
             # Ejecutar caso de uso
             domain_ticket = self.change_status_use_case.execute(command)
             
-            # Obtener instancia Django para serializar
-            django_ticket = Ticket.objects.get(pk=domain_ticket.id)
+            # Convertir entidad de dominio a modelo Django para serialización
+            django_ticket = self.repository.to_django_model(domain_ticket)
             
             return Response(
                 TicketSerializer(django_ticket).data,
