@@ -33,6 +33,9 @@ const Navbar = () => {
     navigate('/login', { replace: true });
   };
 
+  // Determinar si el usuario es admin
+  const isAdmin = currentUser?.role === 'ADMIN';
+
   return (
     <nav className="navbar">
       <div className="navbar__brand">
@@ -42,6 +45,7 @@ const Navbar = () => {
       </div>
 
       <ul className="navbar__links">
+        {/* Tickets - Visible para todos */}
         <li>
           <NavLink
             to="/tickets"
@@ -54,6 +58,7 @@ const Navbar = () => {
           </NavLink>
         </li>
 
+        {/* Crear Ticket - Visible para todos */}
         <li>
           <NavLink
             to="/tickets/new"
@@ -65,30 +70,36 @@ const Navbar = () => {
           </NavLink>
         </li>
 
-        <li>
-          <NavLink
-            to="/notifications"
-            className={({ isActive }) =>
-              isActive ? "navbar__link active" : "navbar__link"
-            }
-          >
-            🔔 Notificaciones
-            {unreadCount > 0 && (
-              <span className="navbar__badge">{unreadCount}</span>
-            )}
-          </NavLink>
-        </li>
+        {/* Notificaciones - Solo ADMIN */}
+        {isAdmin && (
+          <li>
+            <NavLink
+              to="/notifications"
+              className={({ isActive }) =>
+                isActive ? "navbar__link active" : "navbar__link"
+              }
+            >
+              🔔 Notificaciones
+              {unreadCount > 0 && (
+                <span className="navbar__badge">{unreadCount}</span>
+              )}
+            </NavLink>
+          </li>
+        )}
 
-        <li>
-          <NavLink
-            to="/assignments"
-            className={({ isActive }) =>
-              isActive ? "navbar__link active" : "navbar__link"
-            }
-          >
-             Asignaciones
-          </NavLink>
-        </li>
+        {/* Asignaciones - Solo ADMIN */}
+        {isAdmin && (
+          <li>
+            <NavLink
+              to="/assignments"
+              className={({ isActive }) =>
+                isActive ? "navbar__link active" : "navbar__link"
+              }
+            >
+               Asignaciones
+            </NavLink>
+          </li>
+        )}
 
         {currentUser && (
           <li className="navbar__user">
