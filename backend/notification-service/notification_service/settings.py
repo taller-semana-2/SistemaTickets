@@ -22,7 +22,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
     'notifications',
     'rest_framework',
     'corsheaders',
@@ -61,11 +60,11 @@ WSGI_APPLICATION = 'notification_service.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('POSTGRES_DB', 'sistema_tickets'),
-        'USER': os.environ.get('POSTGRES_USER', 'postgres'),
-        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'postgres'),
-        'HOST': os.environ.get('POSTGRES_HOST', 'db'),
-        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        'NAME': os.getenv('POSTGRES_DB') or os.getenv('NOTIFICATION_DB_NAME'),
+        'USER': os.getenv('POSTGRES_USER') or os.getenv('NOTIFICATION_DB_USER'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD') or os.getenv('NOTIFICATION_DB_PASSWORD'),
+        'HOST': os.getenv('POSTGRES_HOST') or os.getenv('NOTIFICATION_DB_HOST'),
+        'PORT': os.getenv('POSTGRES_PORT') or os.getenv('NOTIFICATION_DB_PORT'),
     }
 }
 
@@ -86,6 +85,8 @@ REST_FRAMEWORK = {
     ]
 }
 
-# CORS: permitir todo durante desarrollo para que el frontend pueda consumir la API
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS Configuration
+# Obtener orígenes permitidos desde variables de entorno (separados por comas)
+_cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in _cors_origins.split(",") if origin.strip()]
 

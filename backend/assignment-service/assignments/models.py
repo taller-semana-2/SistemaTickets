@@ -1,9 +1,7 @@
-from django.db import models
+"""
+Importa modelos desde infrastructure para mantener compatibilidad con Django.
+Django espera encontrar modelos en este archivo.
+"""
+from .infrastructure.django_models import TicketAssignmentModel as TicketAssignment
 
-class TicketAssignment(models.Model):
-    ticket_id = models.CharField(max_length=255, unique=True)
-    priority = models.CharField(max_length=50)
-    assigned_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Ticket {self.ticket_id} -> Priority {self.priority}"
+__all__ = ['TicketAssignment']

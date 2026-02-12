@@ -1,0 +1,55 @@
+.page-container {
+  padding: 2rem 5%; /* Mismo padding lateral que tu Navbar */
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding-bottom: 1rem;
+}
+
+.list-header h1 {
+  color: #1a202c;
+  margin: 0;
+  font-size: 2rem;
+}
+
+.ticket-count {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+/* La Cuadrícula Mágica */
+.tickets-grid {
+  display: grid;
+  /* 'auto-fill' crea tantas columnas como quepan */
+  /* 'minmax(300px, 1fr)' asegura que los tickets no sean más pequeños de 300px */
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2rem; /* Espacio entre tickets */
+  align-items: start;
+}
+
+/* Estilos para mensajes de estado */
+.status-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 50vh;
+  color: #475569;
+  font-size: 1.2rem;
+}
+
+.loading-text {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
