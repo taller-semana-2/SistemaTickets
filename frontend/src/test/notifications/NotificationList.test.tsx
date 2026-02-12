@@ -27,20 +27,18 @@ vi.mock('../../components/common', () => ({
 
 const mockNotifications = [
   {
-    id: 1,
+    id: '1',
+    title: 'New ticket assigned',
     message: 'New ticket assigned',
-    type: 'ASSIGNMENT',
-    ticket_id: 100,
     read: false,
-    created_at: '2024-01-15T10:00:00Z',
+    createdAt: '2024-01-15T10:00:00Z',
   },
   {
-    id: 2,
+    id: '2',
+    title: 'Ticket status changed',
     message: 'Ticket status changed',
-    type: 'STATUS_CHANGE',
-    ticket_id: 101,
     read: true,
-    created_at: '2024-01-14T10:00:00Z',
+    createdAt: '2024-01-14T10:00:00Z',
   },
 ];
 
@@ -71,8 +69,8 @@ describe('NotificationList', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('New ticket assigned')).toBeInTheDocument();
-      expect(screen.getByText('Ticket status changed')).toBeInTheDocument();
+      expect(screen.getAllByText('New ticket assigned').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Ticket status changed').length).toBeGreaterThan(0);
     });
   });
 
@@ -100,7 +98,7 @@ describe('NotificationList', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/2 nuevas/i)).toBeInTheDocument();
+      expect(screen.getByText(/2 mensajes/i)).toBeInTheDocument();
     });
   });
 
