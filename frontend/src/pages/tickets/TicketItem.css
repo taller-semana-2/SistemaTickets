@@ -57,6 +57,25 @@
   flex-grow: 1;
 }
 
+.ticket-date {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.calendar-icon {
+  font-size: 1rem;
+}
+
+.created-at {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
 /* --- FOOTER: La clave del posicionamiento --- */
 .ticket-footer {
   display: flex;

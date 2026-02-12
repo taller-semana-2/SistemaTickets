@@ -24,6 +24,23 @@ const TicketItem = ({ ticket, onDelete, onUpdateStatus }: Props) => {
     onUpdateStatus(ticket.id, nextStatus);
   };
 
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'Sin fecha';
+    
+    const date = new Date(dateString);
+    
+    // Verificar si la fecha es válida
+    if (isNaN(date.getTime())) return 'Fecha inválida';
+    
+    return new Intl.DateTimeFormat('es-ES', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  };
+
   return (
     <div className="ticket-item">
       <div className="ticket-content">
@@ -32,6 +49,10 @@ const TicketItem = ({ ticket, onDelete, onUpdateStatus }: Props) => {
           <h3 className="ticket-title">{ticket.title}</h3>
         </div>
         <p className="ticket-description">{ticket.description}</p>
+        <div className="ticket-date">
+          <span className="calendar-icon">📅</span>
+          <small className="created-at">{formatDate(ticket.created_at)}</small>
+        </div>
       </div>
 
       <div className="ticket-footer">

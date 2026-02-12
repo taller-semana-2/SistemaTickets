@@ -5,7 +5,7 @@ export interface Ticket {
   title: string;
   description: string;
   status: TicketStatus;
-  createdAt: string;
+  created_at: string;
 }
 
 export interface CreateTicketDTO {

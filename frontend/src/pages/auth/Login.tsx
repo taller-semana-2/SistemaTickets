@@ -24,7 +24,7 @@ const Login = () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Redirigir al dashboard después del login
-      navigate('/tickets');
+      navigate('/tickets', { replace: true });
     } catch (err) {
       console.error('Login error:', err);
       setError('Error al iniciar sesión. Verifica tus credenciales.');
