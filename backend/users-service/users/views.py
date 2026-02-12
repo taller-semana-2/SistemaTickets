@@ -124,4 +124,42 @@ Thin controllers que delegan TODA la lógica a los casos de uso.
    TODA la lógica está en los casos de uso.
 """
 
-# TODO: Implementar cuando se completen las capas de dominio y aplicación
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.db import connection
+
+
+class HealthCheckView(APIView):
+    """
+    Endpoint de health check para verificar que el servicio está funcionando.
+    
+    GET /api/health/
+    
+    Returns:
+        200: Servicio funcionando correctamente
+        503: Servicio con problemas
+    """
+    
+    def get(self, request):
+        """Verifica estado del servicio y conectividad con la base de datos"""
+        health_status = {
+            'service': 'users-service',
+            'status': 'healthy',
+            'database': 'disconnected'
+        }
+        
+        # Verificar conexión a base de datos
+        try:
+            connection.ensure_connection()
+            health_status['database'] = 'connected'
+        except Exception as e:
+            health_status['status'] = 'unhealthy'
+            health_status['database'] = f'error: {str(e)}'
+            return Response(health_status, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
+        return Response(health_status, status=status.HTTP_200_OK)
+
+
+# TODO: Implementar UserViewSet cuando se completen las capas de dominio y aplicación
+

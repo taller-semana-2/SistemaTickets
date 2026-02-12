@@ -33,11 +33,17 @@ Define las rutas de la API REST.
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import UserViewSet
+from .views import HealthCheckView
 
+# Router para futuros ViewSets
 router = DefaultRouter()
-router.register(r'users', UserViewSet, basename='user')
+# router.register(r'users', UserViewSet, basename='user')  # TODO: descomentar cuando se implemente
 
 urlpatterns = [
+    # Health check endpoint
+    path('api/health/', HealthCheckView.as_view(), name='health-check'),
+    
+    # Rutas de DRF (cuando se implementen)
     path('api/', include(router.urls)),
 ]
+
