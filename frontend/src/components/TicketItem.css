@@ -1,86 +1,106 @@
 .ticket-item {
-  /* Fondo ligeramente más claro que el de la página para que resalte */
-  background: rgba(30, 41, 59, 0.7); 
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 1.5rem;
-  margin-bottom: 1rem;
-  border-radius: 16px;
+  position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 180px; /* Asegura un tamaño consistente */
-  transition: all 0.3s ease;
+  background-color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #6366f1;
+  padding: 1.5rem;
+  border-radius: 16px;
+  margin-bottom: 1rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  min-height: 180px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .ticket-item:hover {
-  border-color: rgba(239, 68, 68, 0.3);
-  transform: translateY(-4px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  transform: translateX(8px);
+  background-color: #f8fafc;
+  border-color: rgba(102, 126, 234, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.ticket-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.ticket-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 50px;
+  min-width: 2.5rem;
 }
 
 .ticket-title {
-  margin: 0 0 0.75rem 0;
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #f8fafc; /* Blanco suave */
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #1e293b;
+  flex: 1;
 }
 
 .ticket-description {
-  margin: 0 0 1.5rem 0;
-  color: #94a3b8; /* Gris azulado para el texto secundario */
+  margin: 0.5rem 0 1.5rem 0;
+  color: #64748b;
   line-height: 1.6;
   font-size: 0.95rem;
-  flex-grow: 1; /* Empuja el footer hacia abajo */
+  flex-grow: 1;
 }
 
 /* --- FOOTER: La clave del posicionamiento --- */
 .ticket-footer {
   display: flex;
-  justify-content: space-between; /* Estado a la izquierda, Botón a la derecha */
+  justify-content: space-between;
   align-items: center;
-  margin-top: auto; /* Garantiza que siempre esté al fondo */
+  margin-top: auto;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .status-badge {
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 600;
   padding: 0.3rem 0.8rem;
   border-radius: 50px;
   text-transform: uppercase;
-  background: rgba(255, 255, 255, 0.05);
-  color: #cbd5e1;
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
 }
 
 /* Estilos específicos para el botón eliminar */
 .delete-button {
-  background: rgba(239, 68, 68, 0.1); 
+  background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.2);
   color: #f87171;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
+  padding: 0.5rem 1.2rem;
+  border-radius: 50px;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: all 0.3s ease;
-}
-
-.delete-button .icon {
-  font-size: 1rem;
-  filter: grayscale(1); /* Hace que el emoji sea sutil */
+  transition: all 0.2s ease;
 }
 
 .delete-button:hover {
   background: #ef4444;
   color: white;
   border-color: #ef4444;
-  box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  transform: translateY(-2px);
 }
 
-.delete-button:hover .icon {
-  filter: grayscale(0);
+.delete-button .icon {
+  font-size: 1rem;
 }

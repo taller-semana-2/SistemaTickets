@@ -3,20 +3,22 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  background-color: #1e293b;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background-color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   padding: 1.5rem;
   border-radius: 16px;
   margin-bottom: 1rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   min-height: 140px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .notification-item:hover {
   transform: translateX(8px);
-  background-color: #243147;
-  border-color: rgba(255, 255, 255, 0.1);
+  background-color: #f8fafc;
+  border-color: rgba(102, 126, 234, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* --- ESTADOS: LEÍDO Y NO LEÍDO --- */
@@ -27,7 +29,7 @@
 
 .notification-item.read {
   opacity: 0.6;
-  background-color: rgba(15, 23, 42, 0.5);
+  background-color: #f1f5f9;
   border-left: 4px solid transparent;
   filter: grayscale(0.4);
 }
@@ -49,13 +51,13 @@
 .notification-title {
   margin: 0;
   font-size: 1.15rem;
-  color: #f8fafc;
+  color: #1e293b;
   font-weight: 600;
 }
 
 .notification-description {
   margin: 0.5rem 0 1.5rem 0;
-  color: #94a3b8;
+  color: #64748b;
   line-height: 1.6;
   font-size: 0.95rem;
   flex-grow: 1;
@@ -68,7 +70,7 @@
   align-items: center;
   margin-top: auto;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .time-info {

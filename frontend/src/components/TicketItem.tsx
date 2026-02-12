@@ -1,5 +1,5 @@
 import type { Ticket } from '../types/ticket';
-import './ticketItem.css';
+import './TicketItem.css';
 
 interface Props {
   ticket: Ticket;
@@ -27,7 +27,10 @@ const TicketItem = ({ ticket, onDelete, onUpdateStatus }: Props) => {
   return (
     <div className="ticket-item">
       <div className="ticket-content">
-        <h3 className="ticket-title">{ticket.title}</h3>
+        <div className="ticket-header">
+          <span className="ticket-number">#{ticket.id}</span>
+          <h3 className="ticket-title">{ticket.title}</h3>
+        </div>
         <p className="ticket-description">{ticket.description}</p>
       </div>
 

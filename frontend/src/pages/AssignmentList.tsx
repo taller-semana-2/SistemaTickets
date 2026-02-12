@@ -96,7 +96,9 @@ const AssignmentList = () => {
 
               <div className="assignment-content">
                 <h3 className="assignment-title">Ticket #{item.ticket_id}</h3>
-                <p className="assignment-message">Prioridad: {item.priority}</p>
+                <p className="assignment-message">
+                  <strong>Prioridad:</strong> {item.priority}
+                </p>
               </div>
 
               <div className="assignment-footer">

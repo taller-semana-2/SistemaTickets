@@ -1,3 +1,55 @@
+# Sistema de Tickets - Frontend
+
+Frontend del sistema de tickets construido con React, TypeScript y Vite.
+
+## 🚀 Tecnologías
+
+- **React 19** - Framework UI
+- **TypeScript** - Tipado estático
+- **Vite** - Build tool y dev server
+- **React Router v7** - Navegación
+- **Axios** - Cliente HTTP
+
+## 📁 Estructura
+
+```
+src/
+├── api/           # Clientes API (Axios)
+├── components/    # Componentes reutilizables
+├── pages/         # Páginas/Vistas
+├── routes/        # Configuración de rutas
+└── types/         # Tipos TypeScript
+```
+
+## 🔐 Autenticación
+
+El sistema incluye páginas de autenticación modernas:
+
+- **`/login`** - Inicio de sesión (email, password)
+- **`/register`** - Registro de usuario (nombre, email, password)
+
+## 🛣️ Rutas principales
+
+- `/` → Redirige a `/login`
+- `/login` → Página de inicio de sesión
+- `/register` → Página de registro
+- `/tickets` → Lista de tickets
+- `/tickets/new` → Crear nuevo ticket
+- `/tickets/:id` → Detalle de ticket
+- `/notifications` → Lista de notificaciones
+- `/assignments` → Lista de asignaciones
+
+## 🎨 Características de diseño
+
+- Diseño moderno con gradientes y animaciones
+- Fondo animado con efectos de blur
+- Formularios con validación en tiempo real
+- Estados de carga y error
+- Responsive design
+- Transiciones suaves
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

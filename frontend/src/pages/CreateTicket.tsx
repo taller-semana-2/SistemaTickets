@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import TicketForm from '../components/TicketForm';
 import { ticketApi } from '../api/ticketApi';
 import type { CreateTicketDTO } from '../types/ticket';
-
+import './CreateTicket.css';
 
 const CreateTicket = () => {
   const navigate = useNavigate();
@@ -13,8 +13,13 @@ const CreateTicket = () => {
   };
 
   return (
-    <div>
-      <h1>Crear Ticket</h1>
+    <div className="page-container">
+      <div className="create-ticket-header">
+        <h1 className="create-ticket-title">Crear Nuevo Ticket</h1>
+        <p className="create-ticket-subtitle">
+          Completa el formulario para crear un nuevo ticket de soporte
+        </p>
+      </div>
       <TicketForm onSubmit={handleCreate} />
     </div>
   );

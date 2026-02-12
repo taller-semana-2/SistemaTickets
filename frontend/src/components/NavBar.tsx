@@ -1,9 +1,10 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from 'react';
 import { notificationsApi } from '../api/notification';
 import "./NavBar.css";
 
 const Navbar = () => {
+  const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
 
   const loadUnreadCount = async () => {
@@ -37,7 +38,7 @@ const Navbar = () => {
               isActive ? "navbar__link active" : "navbar__link"
             }
           >
-            🎫 Tickets
+             Tickets
           </NavLink>
         </li>
 
@@ -48,7 +49,7 @@ const Navbar = () => {
               isActive ? "navbar__link active" : "navbar__link"
             }
           >
-            ➕ Crear Ticket
+             Crear Ticket
           </NavLink>
         </li>
 
@@ -73,8 +74,20 @@ const Navbar = () => {
               isActive ? "navbar__link active" : "navbar__link"
             }
           >
-            📋 Asignaciones
+             Asignaciones
           </NavLink>
+        </li>
+
+        <li className="navbar__logout">
+          <button
+            onClick={() => {
+              // TODO: Limpiar token/sesión del localStorage
+              navigate('/login');
+            }}
+            className="navbar__link navbar__link--logout"
+          >
+             Cerrar Sesión
+          </button>
         </li>
       </ul>
     </nav>
