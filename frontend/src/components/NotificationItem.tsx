@@ -1,7 +1,7 @@
-import type Notification from '../interface/Notification';
+import type { Notification } from '../types/notification';
 import './NotificationItem.css';
 
-interface Props {
+interface NotificationItemProps {
   notification: Notification;
   onMarkAsRead: (id: string) => void;
   onDelete: (id: string) => void;
@@ -11,7 +11,7 @@ const NotificationItem = ({
   notification,
   onMarkAsRead,
   onDelete,
-}: Props) => {
+}: NotificationItemProps) => {
   const { id, title, message, read, createdAt } = notification;
 
   return (

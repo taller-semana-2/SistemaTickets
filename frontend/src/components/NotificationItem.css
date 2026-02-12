@@ -3,7 +3,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  background-color: #1e293b; /* Azul grisáceo oscuro */
+  background-color: #1e293b;
   border: 1px solid rgba(255, 255, 255, 0.05);
   padding: 1.5rem;
   border-radius: 16px;
@@ -21,7 +21,7 @@
 
 /* --- ESTADOS: LEÍDO Y NO LEÍDO --- */
 .notification-item.unread {
-  border-left: 4px solid #6366f1; /* Luz lateral */
+  border-left: 4px solid #6366f1;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
 }
 
@@ -58,13 +58,13 @@
   color: #94a3b8;
   line-height: 1.6;
   font-size: 0.95rem;
-  flex-grow: 1; /* Crucial: empuja el footer al fondo */
+  flex-grow: 1;
 }
 
 /* --- FOOTER Y BOTONES --- */
 .notification-footer {
   display: flex;
-  justify-content: space-between; /* Fecha a la izquierda, botones a la derecha */
+  justify-content: space-between;
   align-items: center;
   margin-top: auto;
   padding-top: 1rem;
@@ -121,4 +121,22 @@
   0% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.3); opacity: 0.7; }
   100% { transform: scale(1); opacity: 1; }
+}
+
+.btn-clear {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239,68, 68, 0.2);
+  padding: 0.6rem 1.5rem;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-clear:hover {
+  background: #ef4444;
+  color: white;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  transform: translateY(-2px);
 }

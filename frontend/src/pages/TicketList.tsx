@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ticketApi } from '../api/ticketApi';
 import type { Ticket } from '../types/ticket';
 import TicketItem from '../components/TicketItem';
+import { LoadingState, EmptyState, PageHeader } from '../components/common';
 import './TicketList.css';
 
 const TicketList = () => {
@@ -59,26 +60,18 @@ const TicketList = () => {
 };
 
   if (loading) {
-    return (
-      <div className="status-container">
-        <p className="loading-text">Cargando tickets...</p>
-      </div>
-    );
+    return <LoadingState message="Cargando tickets..." />;
   }
 
   return (
     <div className="page-container">
-      <header className="list-header">
-        <h1>Panel de Tickets</h1>
-        <span className="ticket-count">
-          {tickets.length} tickets encontrados
-        </span>
-      </header>
+      <PageHeader 
+        title="Panel de Tickets"
+        subtitle={`${tickets.length} tickets encontrados`}
+      />
 
       {tickets.length === 0 ? (
-        <div className="status-container">
-          <p>No hay tickets registrados</p>
-        </div>
+        <EmptyState message="No hay tickets registrados" />
       ) : (
         <div className="tickets-grid">
           {tickets.map((ticket) => (

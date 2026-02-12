@@ -1,7 +1,25 @@
 import { NavLink } from "react-router-dom";
+import { useEffect, useState } from 'react';
+import { notificationsApi } from '../api/notification';
 import "./NavBar.css";
 
 const Navbar = () => {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const loadUnreadCount = async () => {
+    try {
+      const notifications = await notificationsApi.getNotifications();
+      const unread = notifications.filter((n) => !n.read).length;
+      setUnreadCount(unread);
+    } catch (error) {
+      console.error('Error cargando notificaciones', error);
+    }
+  };
+
+  useEffect(() => {
+    loadUnreadCount();
+  }, []);
+
   return (
     <nav className="navbar">
       <div className="navbar__brand">
@@ -11,7 +29,6 @@ const Navbar = () => {
       </div>
 
       <ul className="navbar__links">
-        {/* Rutas internas */}
         <li>
           <NavLink
             to="/tickets"
@@ -20,7 +37,7 @@ const Navbar = () => {
               isActive ? "navbar__link active" : "navbar__link"
             }
           >
-            Tickets
+            🎫 Tickets
           </NavLink>
         </li>
 
@@ -31,20 +48,33 @@ const Navbar = () => {
               isActive ? "navbar__link active" : "navbar__link"
             }
           >
-            Crear Ticket
+            ➕ Crear Ticket
           </NavLink>
         </li>
 
-        {/* Cambio de app */}
-        <li className="navbar__separator" />
-
         <li>
-          <a
-            href="http://localhost:5174"
-            className="navbar__link navbar__external"
+          <NavLink
+            to="/notifications"
+            className={({ isActive }) =>
+              isActive ? "navbar__link active" : "navbar__link"
+            }
           >
             🔔 Notificaciones
-          </a>
+            {unreadCount > 0 && (
+              <span className="navbar__badge">{unreadCount}</span>
+            )}
+          </NavLink>
+        </li>
+
+        <li>
+          <NavLink
+            to="/assignments"
+            className={({ isActive }) =>
+              isActive ? "navbar__link active" : "navbar__link"
+            }
+          >
+            📋 Asignaciones
+          </NavLink>
         </li>
       </ul>
     </nav>

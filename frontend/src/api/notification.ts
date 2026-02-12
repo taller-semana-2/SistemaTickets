@@ -1,13 +1,26 @@
-import type NotificationApi from '../interface/NotificationApi';
-import type Notification from '../interface/Notification';
-import { adaptNotification } from '../adapters/notificationAdapter';
+import type { Notification } from '../types/notification';
+
+// Backend API structure
+interface NotificationApiResponse {
+  id: number;
+  ticket_id: string;
+  message: string;
+  sent_at: string;
+  read: boolean;
+}
 
 const API_URL = 'http://localhost:8001/api/notifications/';
 
+// Adapter function
+const adaptNotification = (apiData: NotificationApiResponse): Notification => ({
+  id: apiData.id.toString(),
+  title: `Ticket #${apiData.ticket_id}`,
+  message: apiData.message,
+  read: apiData.read,
+  createdAt: apiData.sent_at,
+});
+
 export const notificationsApi = {
-  /**
-   * Obtiene todas las notificaciones
-   */
   async getNotifications(): Promise<Notification[]> {
     const response = await fetch(API_URL);
 
@@ -15,8 +28,7 @@ export const notificationsApi = {
       throw new Error('Error al obtener las notificaciones');
     }
 
-    const data: NotificationApi[] = await response.json();
-
+    const data: NotificationApiResponse[] = await response.json();
     return data.map(adaptNotification);
   },
 
@@ -46,8 +58,9 @@ export const notificationsApi = {
   async deleteNotification(id: string): Promise<void> {
     const response = await fetch(`${API_URL}${id}/`, {
       method: 'DELETE',
-    }); 
-  if (!response.ok) {
+    });
+
+    if (!response.ok) {
       throw new Error('Error al eliminar la notificación');
     }
   },

@@ -1,27 +1,4 @@
-.page-container {
-  padding: 2rem 5%;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
 /* Reutilizamos el estilo de cabecera */
-.list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 3rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 1.5rem;
-}
-
-.list-header h1 {
-  font-size: 2.2rem;
-  color: #ffffff;
-  margin: 0;
-  letter-spacing: -0.5px;
-}
-
-/* Grid responsivo */
 .assignments-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -43,7 +20,7 @@
 
 .assignment-card:hover {
   transform: translateY(-8px);
-  border-color: #2dd4bf; /* Color Cian/Esmeralda */
+  border-color: #2dd4bf;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), 0 0 15px rgba(45, 212, 191, 0.1);
 }
 
@@ -109,23 +86,55 @@
   color: #0f172a;
 }
 
+.assignment-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
 .btn-complete {
-  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
   color: #10b981;
   padding: 0.6rem 1.2rem;
-  margin: 0 0.5rem;
   border-radius: 50px;
-}
-
-/* Animaciones de carga reutilizadas */
-.loading-text {
-  color: #2dd4bf;
   font-weight: 600;
-  animation: pulse 1.5s infinite;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
 }
 
-@keyframes pulse {
-  0% { opacity: 0.4; }
-  50% { opacity: 1; }
-  100% { opacity: 0.4; }
+.btn-complete:hover {
+  background: #10b981;
+  color: #fff;
+}
+
+.btn-delete {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  padding: 0.6rem 1.2rem;
+  border-radius: 50px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-delete:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.assignment-card.completed {
+  opacity: 0.6;
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.assignment-card.completed .assignment-badge {
+  background: linear-gradient(90deg, #10b981, #059669);
 }
