@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from 'react';
-import { notificationsApi } from '../api/notification';
+import { notificationsApi } from '../../services/notification';
 import "./NavBar.css";
 
 const Navbar = () => {

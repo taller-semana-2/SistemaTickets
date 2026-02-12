@@ -1,4 +1,4 @@
-import type { Notification } from '../types/notification';
+import type { Notification } from '../../types/notification';
 import './NotificationItem.css';
 
 interface NotificationItemProps {

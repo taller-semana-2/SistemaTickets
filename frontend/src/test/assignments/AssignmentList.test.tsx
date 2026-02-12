@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import AssignmentList from './AssignmentList';
-import { assignmentsApi } from '../api/assignment';
+import AssignmentList from '../../pages/assignments/AssignmentList';
+import { assignmentsApi } from '../../services/assignment';
 
 // Mock the API
-vi.mock('../api/assignment', () => ({
+vi.mock('../../services/assignment', () => ({
   assignmentsApi: {
     getAssignments: vi.fn(),
     deleteAssignment: vi.fn(),
@@ -13,7 +13,7 @@ vi.mock('../api/assignment', () => ({
 }));
 
 // Mock common components
-vi.mock('../components/common', () => ({
+vi.mock('../../components/common', () => ({
   LoadingState: ({ message }: { message?: string }) => <div data-testid="loading-state">{message || 'Loading...'}</div>,
   EmptyState: ({ message }: { message: string }) => <div data-testid="empty-state">{message}</div>,
   PageHeader: ({ title, subtitle }: { title: string; subtitle?: React.ReactNode }) => (

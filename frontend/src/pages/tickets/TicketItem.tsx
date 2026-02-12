@@ -1,4 +1,4 @@
-import type { Ticket } from '../types/ticket';
+import type { Ticket } from '../../types/ticket';
 import './TicketItem.css';
 
 interface Props {

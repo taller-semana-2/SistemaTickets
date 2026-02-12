@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import type { CreateTicketDTO } from '../types/ticket';
+import type { CreateTicketDTO } from '../../types/ticket';
 import './TicketForm.css';
 
 interface Props {

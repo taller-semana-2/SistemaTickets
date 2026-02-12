@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { assignmentsApi } from '../api/assignment';
-import {LoadingState, EmptyState, PageHeader } from '../components/common';
-import type { Assignment } from '../types/assignment';
+import { assignmentsApi } from '../../services/assignment';
+import {LoadingState, EmptyState, PageHeader } from '../../components/common';
+import type { Assignment } from '../../types/assignment';
 import './AssignmentList.css';
 
 interface UIAssignment extends Assignment {

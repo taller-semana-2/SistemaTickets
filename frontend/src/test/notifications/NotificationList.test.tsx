@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import NotificationList from './NotificationList';
-import { notificationsApi } from '../api/notification';
+import NotificationList from '../../pages/notifications/NotificationList';
+import { notificationsApi } from '../../services/notification';
 
 // Mock the API
-vi.mock('../api/notification', () => ({
+vi.mock('../../services/notification', () => ({
   notificationsApi: {
     getNotifications: vi.fn(),
     markAsRead: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock('../api/notification', () => ({
 }));
 
 // Mock common components to simplify testing
-vi.mock('../components/common', () => ({
+vi.mock('../../components/common', () => ({
   LoadingState: ({ message }: { message?: string }) => <div data-testid="loading-state">{message || 'Loading...'}</div>,
   EmptyState: ({ message }: { message: string }) => <div data-testid="empty-state">{message}</div>,
   PageHeader: ({ title, subtitle }: { title: string; subtitle?: React.ReactNode }) => (

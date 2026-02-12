@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import TicketForm from '../components/TicketForm';
-import { ticketApi } from '../api/ticketApi';
-import type { CreateTicketDTO } from '../types/ticket';
+import TicketForm from './TicketForm';
+import { ticketApi } from '../../services/ticketApi';
+import type { CreateTicketDTO } from '../../types/ticket';
 import './CreateTicket.css';
 
 const CreateTicket = () => {

@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
-import Navbar from '../components/NavBar';
-import TicketList from '../pages/TicketList';
-import CreateTicket from '../pages/CreateTicket';
-import TicketDetail from '../pages/TicketDetail';
-import NotificationList from '../pages/NotificationList';
-import AssignmentList from '../pages/AssignmentList';
-import Login from '../pages/Login';
-import Register from '../pages/Register';
+import Navbar from '../pages/navbar/NavBar';
+import TicketList from '../pages/tickets/TicketList';
+import CreateTicket from '../pages/tickets/CreateTicket';
+import TicketDetail from '../pages/tickets/TicketDetail';
+import NotificationList from '../pages/notifications/NotificationList';
+import AssignmentList from '../pages/assignments/AssignmentList';
+import Login from '../pages/auth/Login';
+import Register from '../pages/auth/Register';
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();

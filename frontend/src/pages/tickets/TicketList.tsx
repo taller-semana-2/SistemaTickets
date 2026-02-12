@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ticketApi } from '../api/ticketApi';
-import type { Ticket } from '../types/ticket';
-import TicketItem from '../components/TicketItem';
-import { LoadingState, EmptyState, PageHeader } from '../components/common';
+import { ticketApi } from '../../services/ticketApi';
+import type { Ticket } from '../../types/ticket';
+import TicketItem from './TicketItem';
+import { LoadingState, EmptyState, PageHeader } from '../../components/common';
 import './TicketList.css';
 
 const TicketList = () => {

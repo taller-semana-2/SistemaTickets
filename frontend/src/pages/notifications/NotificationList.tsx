@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { notificationsApi } from '../api/notification';
-import { LoadingState, EmptyState, PageHeader } from '../components/common';
-import NotificationItem from '../components/NotificationItem';
-import type { Notification } from '../types/notification';
+import { notificationsApi } from '../../services/notification';
+import { LoadingState, EmptyState, PageHeader } from '../../components/common';
+import NotificationItem from './NotificationItem';
+import type { Notification } from '../../types/notification';
 import './NotificationList.css';
 
 const NotificationList = () => {
