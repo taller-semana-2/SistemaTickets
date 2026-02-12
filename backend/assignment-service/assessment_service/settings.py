@@ -86,11 +86,11 @@ WSGI_APPLICATION = 'assessment_service.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'assessment_db',
-        'USER': 'assessment_user',
-        'PASSWORD': 'assessment_pass',
-        'HOST': 'assessment-db',
-        'PORT': '5432',
+        'NAME': os.getenv('POSTGRES_DB') or os.getenv('ASSIGNMENT_DB_NAME'),
+        'USER': os.getenv('POSTGRES_USER') or os.getenv('ASSIGNMENT_DB_USER'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD') or os.getenv('ASSIGNMENT_DB_PASSWORD'),
+        'HOST': os.getenv('POSTGRES_HOST') or os.getenv('ASSIGNMENT_DB_HOST'),
+        'PORT': os.getenv('POSTGRES_PORT') or os.getenv('ASSIGNMENT_DB_PORT'),
     }
 }
 

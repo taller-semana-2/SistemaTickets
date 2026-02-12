@@ -87,25 +87,16 @@ WSGI_APPLICATION = 'ticket_service.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-_postgres_db = os.getenv("POSTGRES_DB")
-if _postgres_db:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': _postgres_db,
-            'USER': os.getenv("POSTGRES_USER", "postgres"),
-            'PASSWORD': os.getenv("POSTGRES_PASSWORD", "postgres"),
-            'HOST': os.getenv("POSTGRES_HOST", "db"),
-            'PORT': os.getenv("POSTGRES_PORT", "5432"),
-        }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('POSTGRES_DB') or os.getenv('TICKET_DB_NAME'),
+        'USER': os.getenv('POSTGRES_USER') or os.getenv('TICKET_DB_USER'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD') or os.getenv('TICKET_DB_PASSWORD'),
+        'HOST': os.getenv('POSTGRES_HOST') or os.getenv('TICKET_DB_HOST'),
+        'PORT': os.getenv('POSTGRES_PORT') or os.getenv('TICKET_DB_PORT'),
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+}
 
 
 # Password validation
