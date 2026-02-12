@@ -1,46 +1,81 @@
 """
-domain/factories.py
-
-🎯 PROPÓSITO:
-Factories que encapsulan la lógica compleja de creación de entidades del dominio.
-
-📐 ESTRUCTURA:
-- Validan datos de entrada
-- Aplican reglas de negocio de creación
-- Devuelven entidades completamente válidas
-- Lanzan excepciones de dominio si algo está mal
-
-✅ EJEMPLO de lo que DEBE ir aquí:
-    from typing import Optional
-    from .entities import User
-    from .exceptions import InvalidEmail, InvalidUsername
-    import uuid
-    
-    class UserFactory:
-        @staticmethod
-        def create(email: str, username: str, password: str) -> User:
-            '''Crea un nuevo usuario validando todas las reglas de negocio'''
-            
-            # Validaciones de negocio
-            if not email or '@' not in email:
-                raise InvalidEmail(email)
-            
-            if not username or len(username) < 3:
-                raise InvalidUsername(username)
-            
-            if len(password) < 8:
-                raise WeakPassword()
-            
-            # Generar ID único
-            user_id = str(uuid.uuid4())
-            
-            # Crear entidad válida
-            return User(
-                id=user_id,
-                email=email.lower(),  # Normalización
-                username=username.strip(),
-                is_active=True  # Estado inicial
-            )
-
-💡 Las factories garantizan que nunca se creen entidades en estado inválido.
+Factory - Crea instancias de entidades de dominio asegurando validez.
+Encapsula la lógica compleja de creación y validación.
 """
+
+import uuid
+import hashlib
+
+from .entities import User
+from .exceptions import InvalidUserData, InvalidEmail, InvalidUsername
+
+
+class UserFactory:
+    """
+    Factory para crear usuarios válidos.
+    Aplica validaciones y reglas de creación del dominio.
+    """
+    
+    @staticmethod
+    def create(email: str, username: str, password: str) -> User:
+        """
+        Crea un nuevo usuario validando todos los datos de entrada.
+        
+        Reglas de validación:
+        - Email no puede estar vacío y debe tener formato válido
+        - Username debe tener al menos 3 caracteres
+        - Password debe tener al menos 8 caracteres
+        - Email se normaliza a minúsculas
+        - Username se limpia de espacios
+        
+        Args:
+            email: Email del usuario
+            username: Nombre de usuario
+            password: Password en texto plano (se hasheará)
+            
+        Returns:
+            Nueva instancia de User totalmente válida
+            
+        Raises:
+            InvalidEmail: Si el email no es válido
+            InvalidUsername: Si el username no cumple requisitos
+            InvalidUserData: Si el password es muy corto
+        """
+        # Validación: Email no vacío
+        if not email or not email.strip():
+            raise InvalidEmail(email or "")
+        
+        # Validación: Username mínimo 3 caracteres
+        if not username or len(username.strip()) < 3:
+            raise InvalidUsername(username or "")
+        
+        # Validación: Password mínimo 8 caracteres
+        if not password or len(password) < 8:
+            raise InvalidUserData("El password debe tener al menos 8 caracteres")
+        
+        # Hashear el password (simple hash para desarrollo, usar bcrypt en producción)
+        password_hash = UserFactory._hash_password(password)
+        
+        # Crear usuario usando el método factory de la entidad
+        # Esto aplicará las validaciones adicionales del __post_init__
+        return User.create(
+            email=email,
+            username=username,
+            password_hash=password_hash
+        )
+    
+    @staticmethod
+    def _hash_password(password: str) -> str:
+        """
+        Genera un hash del password.
+        
+        NOTA: En producción usar bcrypt, argon2 o similar.
+        Este es un hash simple solo para desarrollo/ejemplo.
+        
+        Args:
+            password: Password en texto plano
+            
+        Returns:
+            Hash SHA-256 del password
+        """
+        return hashlib.sha256(password.encode()).hexdigest()

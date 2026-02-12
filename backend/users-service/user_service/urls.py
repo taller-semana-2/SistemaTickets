@@ -1,22 +1,20 @@
 """
 URL configuration for user_service project.
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+La configuración de URLs del proyecto incluye:
+- /admin/: Interfaz de administración de Django
+- /api/: Rutas de la API REST de la aplicación users
+
+Para microservicios, todas las rutas de API deben estar bajo /api/
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 
 urlpatterns = [
+    # Django Admin
     path('admin/', admin.site.urls),
+    
+    # API de la aplicación users
+    # Las rutas de users se configuran en users/urls.py
+    path('', include('users.urls')),  # incluye las rutas /api/users/
 ]

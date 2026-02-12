@@ -1,71 +1,164 @@
 """
-infrastructure/repository.py
-
-🎯 PROPÓSITO:
-Implementa la interfaz UserRepository usando Django ORM.
-
-📐 ESTRUCTURA:
-- Implementa TODOS los métodos abstractos de domain/repositories.py
-- Traduce entre entidades de dominio y modelos de Django
-- Maneja la persistencia en base de datos
-
-✅ EJEMPLO de lo que DEBE ir aquí:
-    from typing import Optional, List
-    from users.domain.repositories import UserRepository
-    from users.domain.entities import User as UserEntity
-    from users.models import User as UserModel  # Modelo Django
-    
-    class DjangoUserRepository(UserRepository):
-        '''Implementación del repositorio usando Django ORM'''
-        
-        def save(self, user: UserEntity) -> UserEntity:
-            '''Persiste una entidad User en la base de datos'''
-            # Traducir entidad de dominio -> modelo Django
-            user_model, created = UserModel.objects.update_or_create(
-                id=user.id,
-                defaults={
-                    'email': user.email,
-                    'username': user.username,
-                    'is_active': user.is_active,
-                }
-            )
-            # Devolver entidad actualizada
-            return self._to_entity(user_model)
-        
-        def find_by_id(self, user_id: str) -> Optional[UserEntity]:
-            '''Busca un usuario por ID'''
-            try:
-                user_model = UserModel.objects.get(id=user_id)
-                return self._to_entity(user_model)
-            except UserModel.DoesNotExist:
-                return None
-        
-        def find_by_email(self, email: str) -> Optional[UserEntity]:
-            '''Busca un usuario por email'''
-            try:
-                user_model = UserModel.objects.get(email=email)
-                return self._to_entity(user_model)
-            except UserModel.DoesNotExist:
-                return None
-        
-        def find_all(self) -> List[UserEntity]:
-            '''Devuelve todos los usuarios'''
-            user_models = UserModel.objects.all()
-            return [self._to_entity(um) for um in user_models]
-        
-        def exists_by_email(self, email: str) -> bool:
-            '''Verifica si existe un usuario con ese email'''
-            return UserModel.objects.filter(email=email).exists()
-        
-        def _to_entity(self, user_model: UserModel) -> UserEntity:
-            '''Convierte un modelo Django en una entidad de dominio'''
-            return UserEntity(
-                id=str(user_model.id),
-                email=user_model.email,
-                username=user_model.username,
-                is_active=user_model.is_active
-            )
-
-💡 El repositorio es el PUENTE entre el dominio puro y Django ORM.
-   Oculta los detalles de persistencia al dominio.
+Django Repository - Implementación del repositorio usando Django ORM.
+Adaptador que traduce entre el dominio y la persistencia.
 """
+
+from typing import Optional, List
+
+from ..domain.entities import User as DomainUser
+from ..domain.repositories import UserRepository
+from ..models import User as DjangoUser
+
+
+class DjangoUserRepository(UserRepository):
+    """
+    Implementación del repositorio usando Django ORM.
+    Traduce entre entidades de dominio y modelos de Django.
+    """
+    
+    def save(self, user: DomainUser) -> DomainUser:
+        """
+        Persiste un usuario en la base de datos (crear o actualizar).
+        
+        Args:
+            user: Entidad de dominio
+            
+        Returns:
+            La entidad con el ID asignado
+        """
+        if user.id:
+            # Actualizar usuario existente
+            django_user = DjangoUser.objects.get(pk=user.id)
+            django_user.email = user.email
+            django_user.username = user.username
+            django_user.password_hash = user.password_hash
+            django_user.is_active = user.is_active
+            django_user.save(update_fields=['email', 'username', 'password_hash', 'is_active'])
+        else:
+            # Crear nuevo usuario
+            django_user = DjangoUser.objects.create(
+                email=user.email,
+                username=user.username,
+                password_hash=user.password_hash,
+                is_active=user.is_active
+            )
+            user.id = str(django_user.id)
+        
+        return user
+    
+    def find_by_id(self, user_id: str) -> Optional[DomainUser]:
+        """
+        Busca un usuario por ID y lo convierte a entidad de dominio.
+        
+        Args:
+            user_id: ID del usuario
+            
+        Returns:
+            Entidad de dominio o None si no existe
+        """
+        try:
+            django_user = DjangoUser.objects.get(pk=user_id)
+            return self._to_domain(django_user)
+        except DjangoUser.DoesNotExist:
+            return None
+    
+    def find_by_email(self, email: str) -> Optional[DomainUser]:
+        """
+        Busca un usuario por email.
+        
+        Args:
+            email: Email del usuario
+            
+        Returns:
+            Entidad de dominio o None si no existe
+        """
+        try:
+            django_user = DjangoUser.objects.get(email=email.lower())
+            return self._to_domain(django_user)
+        except DjangoUser.DoesNotExist:
+            return None
+    
+    def find_all(self) -> List[DomainUser]:
+        """
+        Obtiene todos los usuarios ordenados por fecha de creación.
+        
+        Returns:
+            Lista de entidades de dominio
+        """
+        django_users = DjangoUser.objects.all().order_by('-created_at')
+        return [self._to_domain(du) for du in django_users]
+    
+    def exists_by_email(self, email: str) -> bool:
+        """
+        Verifica si existe un usuario con el email dado.
+        
+        Args:
+            email: Email a verificar
+            
+        Returns:
+            True si existe
+        """
+        return DjangoUser.objects.filter(email=email.lower()).exists()
+    
+    def delete(self, user_id: str) -> None:
+        """
+        Elimina un usuario por ID.
+        
+        Args:
+            user_id: ID del usuario a eliminar
+        """
+        DjangoUser.objects.filter(pk=user_id).delete()
+    
+    def to_django_model(self, domain_user: DomainUser) -> DjangoUser:
+        """
+        Convierte una entidad de dominio a modelo Django sin hacer query adicional.
+        Útil para serialización en la capa de presentación.
+        
+        Args:
+            domain_user: Entidad de dominio
+            
+        Returns:
+            Modelo Django (puede no estar guardado en BD)
+        """
+        if domain_user.id:
+            # Si tiene ID, buscar el modelo existente para mantener metadata de Django
+            try:
+                django_user = DjangoUser.objects.get(pk=domain_user.id)
+                # Actualizar valores desde la entidad de dominio
+                django_user.email = domain_user.email
+                django_user.username = domain_user.username
+                django_user.password_hash = domain_user.password_hash
+                django_user.is_active = domain_user.is_active
+                return django_user
+            except DjangoUser.DoesNotExist:
+                pass
+        
+        # Crear instancia Django en memoria (no guardada)
+        return DjangoUser(
+            id=domain_user.id,
+            email=domain_user.email,
+            username=domain_user.username,
+            password_hash=domain_user.password_hash,
+            is_active=domain_user.is_active,
+            created_at=getattr(domain_user, 'created_at', None)
+        )
+    
+    @staticmethod
+    def _to_domain(django_user: DjangoUser) -> DomainUser:
+        """
+        Convierte un modelo Django a entidad de dominio.
+        
+        Args:
+            django_user: Modelo Django
+            
+        Returns:
+            Entidad de dominio
+        """
+        return DomainUser(
+            id=str(django_user.id),
+            email=django_user.email,
+            username=django_user.username,
+            password_hash=django_user.password_hash,
+            is_active=django_user.is_active,
+            created_at=django_user.created_at
+        )

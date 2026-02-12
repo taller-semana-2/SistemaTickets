@@ -1,22 +1,13 @@
 """
-CAPA DE DOMINIO - domain/
+CAPA DE DOMINIO - Lógica de negocio pura, independiente del framework.
 
-📋 REGLA DE ORO: Esta capa NO puede depender de Django ni de ningún framework externo.
+Esta capa contiene:
+- Entidades: Objetos con identidad y reglas de negocio
+- Eventos: Hechos importantes del dominio (inmutables)
+- Excepciones: Violaciones de reglas de negocio
+- Factories: Creación compleja de entidades
+- Repositorios: Interfaces para persistencia (NO implementaciones)
+- Event Publisher: Interfaz para publicar eventos (NO implementación)
 
-✅ Puede contener:
-- Entidades del dominio (clases con lógica de negocio)
-- Value Objects (objetos inmutables)
-- Eventos de dominio
-- Excepciones de dominio
-- Interfaces de repositorios (SOLO interfaces, NO implementaciones)
-- Factories para crear entidades válidas
-
-❌ NO puede contener:
-- Imports de Django (models, ORM, views, etc.)
-- Imports de DRF (serializers, viewsets, etc.)
-- Imports de pika, celery, etc.
-- Lógica de persistencia
-- Lógica de infraestructura
-
-💡 El dominio es el CORAZÓN de la aplicación. Debe ser PURO y testeable sin dependencias.
+REGLA DE ORO: Esta capa NO puede importar Django, DRF, Pika ni ningún framework.
 """
