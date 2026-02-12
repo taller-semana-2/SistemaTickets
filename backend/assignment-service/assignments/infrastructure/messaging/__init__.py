@@ -1,0 +1,3 @@
+"""
+Infraestructura de mensajería.
+"""
