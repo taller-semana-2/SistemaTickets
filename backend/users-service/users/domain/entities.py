@@ -6,10 +6,20 @@ Contienen las reglas de negocio y son independientes del framework.
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
+from enum import Enum
 import re
 
 from .events import DomainEvent, UserDeactivated, UserEmailChanged
 from .exceptions import InvalidEmail, UserAlreadyInactive
+
+
+class UserRole(str, Enum):
+    """
+    Enum para los roles de usuario en el dominio.
+    Define los tipos de usuario permitidos en el sistema.
+    """
+    ADMIN = "ADMIN"
+    USER = "USER"
 
 
 @dataclass
@@ -23,6 +33,7 @@ class User:
     - El email debe ser válido y único en el sistema
     - El username debe tener al menos 3 caracteres
     - Un usuario puede estar activo o inactivo
+    - Un usuario tiene un rol (ADMIN o USER)
     - Solo se puede desactivar un usuario activo (idempotencia)
     """
     
@@ -32,6 +43,7 @@ class User:
     username: str
     password_hash: str  # Hash del password, NUNCA el password en texto plano
     is_active: bool
+    role: UserRole  # Rol del usuario
     created_at: datetime
     
     # Lista de eventos de dominio generados por cambios en la entidad
@@ -118,6 +130,24 @@ class User:
         )
         self._domain_events.append(event)
     
+    def is_admin(self) -> bool:
+        """
+        Verifica si el usuario tiene rol de administrador.
+        
+        Returns:
+            True si el usuario es ADMIN
+        """
+        return self.role == UserRole.ADMIN
+    
+    def is_normal_user(self) -> bool:
+        """
+        Verifica si el usuario tiene rol de usuario normal.
+        
+        Returns:
+            True si el usuario es USER
+        """
+        return self.role == UserRole.USER
+    
     def collect_domain_events(self) -> List[DomainEvent]:
         """
         Recolecta y limpia los eventos de dominio generados.
@@ -149,7 +179,7 @@ class User:
         return bool(re.match(email_pattern, email.strip()))
     
     @staticmethod
-    def create(email: str, username: str, password_hash: str) -> "User":
+    def create(email: str, username: str, password_hash: str, role: UserRole = UserRole.USER) -> "User":
         """
         Crea un nuevo usuario en estado activo (método factory).
         
@@ -157,6 +187,7 @@ class User:
             email: Email del usuario
             username: Nombre de usuario
             password_hash: Hash del password (NO el password en texto plano)
+            role: Rol del usuario (default: USER)
             
         Returns:
             Nueva instancia de User
@@ -170,7 +201,7 @@ class User:
             email=email.lower().strip(),
             username=username.strip(),
             password_hash=password_hash,
-            is_active=True,
+            is_active=True,role=role,
             created_at=datetime.now()
         )
         

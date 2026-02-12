@@ -37,3 +37,33 @@ Transforma datos entre JSON (HTTP) y objetos Python.
 💡 Los serializers son el "traductor" entre HTTP/JSON y tu aplicación.
    Hacen validaciones básicas, NO validaciones de negocio (esas van en el dominio).
 """
+
+from rest_framework import serializers
+
+
+class RegisterUserSerializer(serializers.Serializer):
+    """Serializer para registrar un nuevo usuario (INPUT)"""
+    email = serializers.EmailField(required=True)
+    username = serializers.CharField(min_length=3, max_length=50, required=True)
+    password = serializers.CharField(min_length=8, write_only=True, required=True)
+    role = serializers.ChoiceField(
+        choices=['ADMIN', 'USER'],
+        default='USER',
+        required=False
+    )
+
+
+class LoginSerializer(serializers.Serializer):
+    """Serializer para login de usuario (INPUT)"""
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(required=True, write_only=True)
+
+
+class UserResponseSerializer(serializers.Serializer):
+    """Serializer para representar un usuario (OUTPUT)"""
+    id = serializers.CharField(read_only=True)
+    email = serializers.EmailField()
+    username = serializers.CharField()
+    role = serializers.CharField()
+    is_active = serializers.BooleanField()
+    created_at = serializers.DateTimeField(read_only=True)

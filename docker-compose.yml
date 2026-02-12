@@ -189,9 +189,50 @@ services:
       - notification-service
     restart: on-failure
 
+  # --- Users DB ---
+  users-db:
+    image: postgres:16-alpine
+    container_name: users-db
+    environment:
+      POSTGRES_DB: users_db
+      POSTGRES_USER: users_user
+      POSTGRES_PASSWORD: users_pass
+    ports:
+      - "5435:5432"
+    volumes:
+      - users_db_data:/var/lib/postgresql/data
+
+  users-service:
+    build:
+      context: ./backend/users-service
+    container_name: users-service
+    working_dir: /app
+    volumes:
+      - ./backend/users-service:/app
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    env_file:
+      - ./.env
+    environment:
+      DJANGO_SETTINGS_MODULE: user_service.settings
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      POSTGRES_DB: users_db
+      POSTGRES_USER: users_user
+      POSTGRES_PASSWORD: users_pass
+      POSTGRES_HOST: users-db
+      POSTGRES_PORT: "5432"
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      - users-db
+      - rabbitmq
+    ports:
+      - "8003:8000"
+
 
 
 volumes:
   db_data:
   assessment_db_data:
   notification_db_data:
+  users_db_data:

@@ -6,7 +6,7 @@ Encapsula la lógica compleja de creación y validación.
 import uuid
 import hashlib
 
-from .entities import User
+from .entities import User, UserRole
 from .exceptions import InvalidUserData, InvalidEmail, InvalidUsername
 
 
@@ -17,7 +17,7 @@ class UserFactory:
     """
     
     @staticmethod
-    def create(email: str, username: str, password: str) -> User:
+    def create(email: str, username: str, password: str, role: UserRole = UserRole.USER) -> User:
         """
         Crea un nuevo usuario validando todos los datos de entrada.
         
@@ -27,11 +27,13 @@ class UserFactory:
         - Password debe tener al menos 8 caracteres
         - Email se normaliza a minúsculas
         - Username se limpia de espacios
+        - Role por defecto es USER
         
         Args:
             email: Email del usuario
             username: Nombre de usuario
             password: Password en texto plano (se hasheará)
+            role: Rol del usuario (default: USER)
             
         Returns:
             Nueva instancia de User totalmente válida
@@ -61,7 +63,8 @@ class UserFactory:
         return User.create(
             email=email,
             username=username,
-            password_hash=password_hash
+            password_hash=password_hash,
+            role=role
         )
     
     @staticmethod

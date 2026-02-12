@@ -126,8 +126,29 @@ Thin controllers que delegan TODA la lógica a los casos de uso.
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, viewsets
 from django.db import connection
+
+from .application.use_cases import (
+    RegisterUserCommand,
+    LoginCommand,
+    RegisterUserUseCase,
+    LoginUseCase
+)
+from .infrastructure.repository import DjangoUserRepository
+from .infrastructure.event_publisher import RabbitMQEventPublisher
+from .serializers import (
+    RegisterUserSerializer,
+    LoginSerializer,
+    UserResponseSerializer
+)
+from .domain.exceptions import (
+    UserAlreadyExists,
+    InvalidEmail,
+    InvalidUsername,
+    InvalidUserData,
+    UserNotFound
+)
 
 
 class HealthCheckView(APIView):
@@ -159,6 +180,117 @@ class HealthCheckView(APIView):
             return Response(health_status, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         
         return Response(health_status, status=status.HTTP_200_OK)
+
+
+class AuthViewSet(viewsets.ViewSet):
+    """
+    ViewSet para autenticación de usuarios.
+    
+    Endpoints:
+    - POST /api/auth/register/ - Registrar un nuevo usuario
+    - POST /api/auth/login/ - Autenticar un usuario
+    """
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Inyección de dependencias
+        self.repository = DjangoUserRepository()
+        self.event_publisher = RabbitMQEventPublisher()
+    
+    def create(self, request):
+        """
+        POST /api/auth/register/
+        Registrar un nuevo usuario
+        """
+        # 1. Validar input
+        serializer = RegisterUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # 2. Ejecutar caso de uso
+        try:
+            command = RegisterUserCommand(
+                email=serializer.validated_data['email'],
+                username=serializer.validated_data['username'],
+                password=serializer.validated_data['password'],
+                role=serializer.validated_data.get('role', 'USER')
+            )
+            
+            use_case = RegisterUserUseCase(
+                repository=self.repository,
+                event_publisher=self.event_publisher
+            )
+            
+            user = use_case.execute(command)
+            
+            # 3. Serializar output
+            output_serializer = UserResponseSerializer({
+                'id': user.id,
+                'email': user.email,
+                'username': user.username,
+                'role': user.role.value,
+                'is_active': user.is_active,
+                'created_at': user.created_at
+            })
+            
+            return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+        
+        except UserAlreadyExists as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except (InvalidEmail, InvalidUsername, InvalidUserData) as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Error inesperado: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def login(self, request):
+        """
+        POST /api/auth/login/
+        Autenticar un usuario
+        """
+        # 1. Validar input
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # 2. Ejecutar caso de uso
+        try:
+            command = LoginCommand(
+                email=serializer.validated_data['email'],
+                password=serializer.validated_data['password']
+            )
+            
+            use_case = LoginUseCase(repository=self.repository)
+            user = use_case.execute(command)
+            
+            # 3. Serializar output (incluye role)
+            output_serializer = UserResponseSerializer({
+                'id': user.id,
+                'email': user.email,
+                'username': user.username,
+                'role': user.role.value,
+                'is_active': user.is_active,
+                'created_at': user.created_at
+            })
+            
+            return Response(output_serializer.data, status=status.HTTP_200_OK)
+        
+        except UserNotFound as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Error inesperado: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 # TODO: Implementar UserViewSet cuando se completen las capas de dominio y aplicación

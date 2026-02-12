@@ -32,6 +32,11 @@ import uuid
 class User(models.Model):
     """Modelo Django para persistir usuarios en la base de datos"""
     
+    class RoleChoices(models.TextChoices):
+        """Choices para los roles de usuario"""
+        ADMIN = "ADMIN", "Admin"
+        USER = "USER", "User"
+    
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -49,6 +54,11 @@ class User(models.Model):
     )
     password_hash = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
+    role = models.CharField(
+        max_length=10,
+        choices=RoleChoices.choices,
+        default=RoleChoices.USER
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -61,4 +71,4 @@ class User(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.username} ({self.email})"
+        return f"{self.username} ({self.email}) - {self.role}"

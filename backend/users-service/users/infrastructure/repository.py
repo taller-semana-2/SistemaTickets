@@ -5,7 +5,7 @@ Adaptador que traduce entre el dominio y la persistencia.
 
 from typing import Optional, List
 
-from ..domain.entities import User as DomainUser
+from ..domain.entities import User as DomainUser, UserRole
 from ..domain.repositories import UserRepository
 from ..models import User as DjangoUser
 
@@ -33,14 +33,16 @@ class DjangoUserRepository(UserRepository):
             django_user.username = user.username
             django_user.password_hash = user.password_hash
             django_user.is_active = user.is_active
-            django_user.save(update_fields=['email', 'username', 'password_hash', 'is_active'])
+            django_user.role = user.role.value  # Convertir enum a string
+            django_user.save(update_fields=['email', 'username', 'password_hash', 'is_active', 'role'])
         else:
             # Crear nuevo usuario
             django_user = DjangoUser.objects.create(
                 email=user.email,
                 username=user.username,
                 password_hash=user.password_hash,
-                is_active=user.is_active
+                is_active=user.is_active,
+                role=user.role.value  # Convertir enum a string
             )
             user.id = str(django_user.id)
         
@@ -140,6 +142,7 @@ class DjangoUserRepository(UserRepository):
             username=domain_user.username,
             password_hash=domain_user.password_hash,
             is_active=domain_user.is_active,
+            role=domain_user.role.value,  # Convertir enum a string
             created_at=getattr(domain_user, 'created_at', None)
         )
     
@@ -160,5 +163,6 @@ class DjangoUserRepository(UserRepository):
             username=django_user.username,
             password_hash=django_user.password_hash,
             is_active=django_user.is_active,
+            role=UserRole(django_user.role),  # Convertir string a enum
             created_at=django_user.created_at
         )

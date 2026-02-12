@@ -6,8 +6,9 @@ Cada caso de uso representa una operación de negocio completa.
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
+import hashlib
 
-from ..domain.entities import User
+from ..domain.entities import User, UserRole
 from ..domain.factories import UserFactory
 from ..domain.repositories import UserRepository
 from ..domain.event_publisher import EventPublisher
@@ -35,6 +36,22 @@ class ChangeUserEmailCommand:
     """Comando: Cambiar el email de un usuario."""
     user_id: str
     new_email: str
+
+
+@dataclass
+class RegisterUserCommand:
+    """Comando: Registrar un nuevo usuario."""
+    email: str
+    username: str
+    password: str
+    role: str = "USER"
+
+
+@dataclass
+class LoginCommand:
+    """Comando: Autenticar un usuario."""
+    email: str
+    password: str
 
 
 class CreateUserUseCase:
@@ -282,3 +299,132 @@ class ListUsersUseCase:
             Lista de usuarios
         """
         return self.repository.find_all()
+
+
+class RegisterUserUseCase:
+    """
+    Caso de uso: Registrar un nuevo usuario.
+    Similar a CreateUserUseCase pero específico para auth endpoint.
+    
+    Responsabilidades:
+    1. Validar que el email no exista
+    2. Crear la entidad mediante factory (validaciones)
+    3. Persistir el usuario usando el repositorio
+    4. Generar y publicar eventos de dominio
+    """
+    
+    def __init__(
+        self,
+        repository: UserRepository,
+        event_publisher: EventPublisher,
+        factory: UserFactory = None
+    ):
+        self.repository = repository
+        self.event_publisher = event_publisher
+        self.factory = factory or UserFactory()
+    
+    def execute(self, command: RegisterUserCommand) -> User:
+        """
+        Ejecuta el caso de uso de registro de usuario.
+        
+        Args:
+            command: Comando con los datos del usuario
+            
+        Returns:
+            El usuario creado y persistido
+            
+        Raises:
+            UserAlreadyExists: Si el email ya está registrado
+            InvalidEmail: Si el email no es válido
+            InvalidUsername: Si el username no cumple requisitos
+            InvalidUserData: Si el password es muy corto
+        """
+        # 1. Validar que el email no exista
+        if self.repository.exists_by_email(command.email):
+            raise UserAlreadyExists(command.email)
+        
+        # 2. Convertir string role a enum
+        role = UserRole(command.role)
+        
+        # 3. Crear entidad de dominio usando factory (valida)
+        user = self.factory.create(
+            email=command.email,
+            username=command.username,
+            password=command.password,
+            role=role
+        )
+        
+        # 4. Persistir el usuario
+        user = self.repository.save(user)
+        
+        # 5. Generar evento de dominio (ahora que tenemos el ID)
+        event = UserCreated(
+            occurred_at=datetime.now(),
+            user_id=user.id,
+            email=user.email,
+            username=user.username
+        )
+        
+        # 6. Publicar evento
+        self.event_publisher.publish(event, 'user.created')
+        
+        return user
+
+
+class LoginUseCase:
+    """
+    Caso de uso: Autenticar un usuario.
+    
+    Responsabilidades:
+    1. Buscar el usuario por email
+    2. Verificar el password
+    3. Validar que el usuario esté activo
+    4. Retornar el usuario autenticado
+    """
+    
+    def __init__(self, repository: UserRepository):
+        self.repository = repository
+    
+    def execute(self, command: LoginCommand) -> User:
+        """
+        Ejecuta el caso de uso de login.
+        
+        Args:
+            command: Comando con email y password
+            
+        Returns:
+            El usuario autenticado
+            
+        Raises:
+            UserNotFound: Si el email no existe o credenciales inválidas
+        """
+        # 1. Buscar usuario por email
+        user = self.repository.find_by_email(command.email)
+        
+        if not user:
+            raise UserNotFound("Credenciales inválidas")
+        
+        # 2. Verificar password
+        password_hash = self._hash_password(command.password)
+        
+        if user.password_hash != password_hash:
+            raise UserNotFound("Credenciales inválidas")
+        
+        # 3. Validar que el usuario esté activo
+        if not user.is_active:
+            raise UserNotFound("Usuario inactivo")
+        
+        return user
+    
+    @staticmethod
+    def _hash_password(password: str) -> str:
+        """
+        Genera un hash del password (debe ser igual al de la factory).
+        
+        Args:
+            password: Password en texto plano
+            
+        Returns:
+            Hash SHA-256 del password
+        """
+        return hashlib.sha256(password.encode()).hexdigest()
