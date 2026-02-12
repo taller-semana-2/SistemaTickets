@@ -1,19 +1,7 @@
 """
-DEPRECADO: Este archivo ha sido reemplazado por la carpeta tests/
-
-Los tests ahora están organizados en:
-- tests/test_domain.py - Tests de entidades y reglas de negocio
-- tests/test_use_cases.py - Tests de casos de uso
-- tests/test_infrastructure.py - Tests del repositorio Django
-- tests/test_views.py - Tests del ViewSet
-- tests/test_integration.py - Tests de integración
-
-Ejecutar tests con:
-    python manage.py test notifications.tests
+Tests de integración.
+Prueban la integración con RabbitMQ y el flujo completo del sistema.
 """
-
-# NOTA: Este archivo se mantiene temporalmente para compatibilidad.
-# Los tests originales se han migrado a tests/test_integration.py
 
 import json
 import pika
@@ -25,16 +13,11 @@ RABBIT_HOST = 'rabbitmq'
 QUEUE_NAME = 'ticket_created'
 
 
-# DEPRECADO: Ver tests/test_integration.py
-class NotificationTests(TestCase):
-    def test_notification_model(self):
-        n = Notification.objects.create(ticket_id='T-1', message='Hola')
-        self.assertEqual(str(n).startswith('Notification for T-1'), True)
-
-
-# DEPRECADO: Ver tests/test_integration.py
 class NotificationIntegrationTests(TestCase):
+    """Tests de integración con RabbitMQ."""
+    
     def publish_message(self, ticket_id):
+        """Helper para publicar un mensaje en RabbitMQ."""
         connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBIT_HOST))
         channel = connection.channel()
         channel.queue_declare(queue=QUEUE_NAME, durable=True)
@@ -45,6 +28,7 @@ class NotificationIntegrationTests(TestCase):
         connection.close()
 
     def test_consumer_creates_notification(self):
+        """El consumer crea una notificación al recibir un mensaje."""
         ticket_id = 'NOTIF-1'
         # publicar mensaje
         self.publish_message(ticket_id)
@@ -68,3 +52,11 @@ class NotificationIntegrationTests(TestCase):
         self.assertTrue(Notification.objects.filter(ticket_id=ticket_id).exists())
         connection.close()
 
+
+class NotificationModelTests(TestCase):
+    """Tests del modelo Django básico."""
+    
+    def test_notification_model(self):
+        """Crear una notificación y verificar su representación."""
+        n = Notification.objects.create(ticket_id='T-1', message='Hola')
+        self.assertEqual(str(n).startswith('Notification for T-1'), True)
