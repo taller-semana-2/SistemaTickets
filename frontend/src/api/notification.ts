@@ -1,4 +1,5 @@
 import type { Notification } from '../types/notification';
+import { notificationApiClient } from './axiosConfig';
 
 // Backend API structure
 interface NotificationApiResponse {
@@ -8,8 +9,6 @@ interface NotificationApiResponse {
   sent_at: string;
   read: boolean;
 }
-
-const API_URL = 'http://localhost:8001/api/notifications/';
 
 // Adapter function
 const adaptNotification = (apiData: NotificationApiResponse): Notification => ({
@@ -22,46 +21,19 @@ const adaptNotification = (apiData: NotificationApiResponse): Notification => ({
 
 export const notificationsApi = {
   async getNotifications(): Promise<Notification[]> {
-    const response = await fetch(API_URL);
-
-    if (!response.ok) {
-      throw new Error('Error al obtener las notificaciones');
-    }
-
-    const data: NotificationApiResponse[] = await response.json();
+    const { data } = await notificationApiClient.get<NotificationApiResponse[]>('/notifications/');
     return data.map(adaptNotification);
   },
 
   async markAsRead(id: string): Promise<void> {
-    const response = await fetch(`${API_URL}${id}/read/`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al marcar la notificación como leída');
-    }
+    await notificationApiClient.patch(`/notifications/${id}/read/`);
   },
 
   async clearAll(): Promise<void> {
-    const response = await fetch(`${API_URL}clear/`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al eliminar las notificaciones');
-    }
+    await notificationApiClient.delete('/notifications/clear/');
   },
 
   async deleteNotification(id: string): Promise<void> {
-    const response = await fetch(`${API_URL}${id}/`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al eliminar la notificación');
-    }
+    await notificationApiClient.delete(`/notifications/${id}/`);
   },
 };

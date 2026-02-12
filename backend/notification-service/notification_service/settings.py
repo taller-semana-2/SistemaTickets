@@ -22,7 +22,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
     'notifications',
     'rest_framework',
     'corsheaders',
@@ -86,6 +85,8 @@ REST_FRAMEWORK = {
     ]
 }
 
-# CORS: permitir todo durante desarrollo para que el frontend pueda consumir la API
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS Configuration
+# Obtener orígenes permitidos desde variables de entorno (separados por comas)
+_cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in _cors_origins.split(",") if origin.strip()]
 

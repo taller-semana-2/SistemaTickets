@@ -1,68 +1,38 @@
 import type { Ticket, CreateTicketDTO } from '../types/ticket';
-
-const API_URL = 'http://localhost:8000/api/tickets/';
+import { ticketApiClient } from './axiosConfig';
 
 export const ticketApi = {
   /**
    * Obtener todos los tickets
    */
   getTickets: async (): Promise<Ticket[]> => {
-    const response = await fetch(API_URL);
-
-    if (!response.ok) {
-      throw new Error('Error al obtener los tickets');
-    }
-
-    const data: Ticket[] = await response.json();
+    const { data } = await ticketApiClient.get<Ticket[]>('/tickets/');
     return data;
   },
 
   /**
    * Crear un nuevo ticket
    */
-  createTicket: async (data: CreateTicketDTO): Promise<Ticket> => {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al crear el ticket');
-    }
-
-    const newTicket: Ticket = await response.json();
-    return newTicket;
+  createTicket: async (ticketData: CreateTicketDTO): Promise<Ticket> => {
+    const { data } = await ticketApiClient.post<Ticket>('/tickets/', ticketData);
+    return data;
   },
 
+  /**
+   * Eliminar un ticket
+   */
   deleteTicket: async (id: number): Promise<void> => {
-    const response = await fetch(`${API_URL}${id}/`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al eliminar el ticket');
-    }
+    await ticketApiClient.delete(`/tickets/${id}/`);
   },
 
+  /**
+   * Actualizar el estado de un ticket
+   */
   updateStatus: async (id: number, status: string): Promise<Ticket> => {
-  const response = await fetch(`${API_URL}${id}/status/`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ status }),
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al actualizar el estado del ticket');
-  }
-
-  const updatedTicket: Ticket = await response.json();
-  return updatedTicket;
-},
-
-
+    const { data } = await ticketApiClient.patch<Ticket>(
+      `/tickets/${id}/status/`,
+      { status }
+    );
+    return data;
+  },
 };
