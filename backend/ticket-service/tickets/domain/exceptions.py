@@ -1,0 +1,34 @@
+"""
+Excepciones de dominio - Representan violaciones de reglas de negocio.
+"""
+
+
+class DomainException(Exception):
+    """Excepción base para errores de dominio."""
+    pass
+
+
+class InvalidTicketStateTransition(DomainException):
+    """Se lanza cuando se intenta una transición de estado inválida."""
+    
+    def __init__(self, current_status: str, new_status: str):
+        self.current_status = current_status
+        self.new_status = new_status
+        super().__init__(
+            f"No se puede cambiar el estado de un ticket {current_status} a {new_status}"
+        )
+
+
+class TicketAlreadyClosed(DomainException):
+    """Se lanza cuando se intenta modificar un ticket cerrado."""
+    
+    def __init__(self, ticket_id: int):
+        self.ticket_id = ticket_id
+        super().__init__(
+            f"El ticket {ticket_id} está cerrado y no puede ser modificado"
+        )
+
+
+class InvalidTicketData(DomainException):
+    """Se lanza cuando los datos del ticket son inválidos."""
+    pass

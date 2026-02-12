@@ -7,3 +7,4 @@ psycopg2-binary==2.9.9
 sqlparse==0.5.5
 tzdata==2025.3
 django-cors-headers>=3.13.0
+python-dotenv>=1.0.1
