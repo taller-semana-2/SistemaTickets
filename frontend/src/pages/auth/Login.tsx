@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { authService } from '../../services/auth';
 import './Auth.css';
 
 const Login = () => {
@@ -17,17 +18,27 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // TODO: Implementar llamada al API de autenticación
-      console.log('Login data:', formData);
+      // Llamar al API de autenticación
+      await authService.login({
+        email: formData.email,
+        password: formData.password,
+      });
       
-      // Simulación temporal
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Redirigir al dashboard después del login
+      // Redirigir al dashboard después del login exitoso
       navigate('/tickets', { replace: true });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login error:', err);
-      setError('Error al iniciar sesión. Verifica tus credenciales.');
+      
+      // Manejar diferentes tipos de errores
+      if (err.response?.status === 401) {
+        setError('Credenciales inválidas. Verifica tu email y contraseña.');
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(`Error de conexión: ${err.message}`);
+      } else {
+        setError('Error al iniciar sesión. Intenta nuevamente.');
+      }
     } finally {
       setLoading(false);
     }

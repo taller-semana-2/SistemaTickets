@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { authService } from '../../services/auth';
 import './Auth.css';
 
 const Register = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    nombre: '',
+    username: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -23,29 +24,36 @@ const Register = () => {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+    if (formData.password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres');
       return;
     }
 
     setLoading(true);
 
     try {
-      // TODO: Implementar llamada al API de registro
-      console.log('Register data:', {
-        nombre: formData.nombre,
+      // Llamar al API de registro
+      await authService.register({
+        username: formData.username,
         email: formData.email,
         password: formData.password,
       });
 
-      // Simulación temporal
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Redirigir al login después del registro
-      navigate('/login');
-    } catch (err) {
+      // Redirigir al dashboard después del registro exitoso
+      navigate('/tickets', { replace: true });
+    } catch (err: any) {
       console.error('Register error:', err);
-      setError('Error al crear la cuenta. Intenta nuevamente.');
+      
+      // Manejar diferentes tipos de errores
+      if (err.response?.status === 400) {
+        setError(err.response.data?.error || 'El email ya está registrado o los datos son inválidos.');
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(`Error de conexión: ${err.message}`);
+      } else {
+        setError('Error al crear la cuenta. Intenta nuevamente.');
+      }
     } finally {
       setLoading(false);
     }
@@ -104,19 +112,21 @@ const Register = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="nombre" className="form-label">
-                Nombre completo
+              <label htmlFor="username" className="form-label">
+                Nombre de usuario
               </label>
               <input
                 type="text"
-                id="nombre"
-                name="nombre"
-                value={formData.nombre}
+                id="username"
+                name="username"
+                value={formData.username}
                 onChange={handleChange}
                 className="form-input"
-                placeholder="Juan Pérez"
+                placeholder="usuario123"
+                minLength={3}
                 required
               />
+              <span className="form-hint">Mínimo 3 caracteres</span>
             </div>
 
             <div className="form-group">
@@ -149,10 +159,10 @@ const Register = () => {
                 onChange={handleChange}
                 className="form-input"
                 placeholder="••••••••"
-                minLength={6}
+                minLength={8}
                 required
               />
-              <span className="form-hint">Mínimo 6 caracteres</span>
+              <span className="form-hint">Mínimo 8 caracteres</span>
             </div>
 
             <div className="form-group">

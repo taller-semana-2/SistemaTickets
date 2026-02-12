@@ -69,9 +69,35 @@
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
+/* Usuario actual */
+.navbar__user {
+  margin-left: auto;
+}
+
+.navbar__username {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.95rem;
+  padding: 0.5rem 1rem;
+  border-radius: 50px;
+  background-color: rgba(255, 255, 255, 0.1);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.navbar__admin-badge {
+  background-color: #fbbf24;
+  color: #1e293b;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
 /* Botón de cerrar sesión */
 .navbar__logout {
-  margin-left: auto;
+  margin-left: 0.5rem;
 }
 
 .navbar__link--logout {

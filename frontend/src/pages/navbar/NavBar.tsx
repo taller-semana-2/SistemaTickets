@@ -1,11 +1,14 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from 'react';
 import { notificationsApi } from '../../services/notification';
+import { authService } from '../../services/auth';
+import type { User } from '../../types/auth';
 import "./NavBar.css";
 
 const Navbar = () => {
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const loadUnreadCount = async () => {
     try {
@@ -18,8 +21,17 @@ const Navbar = () => {
   };
 
   useEffect(() => {
+    // Cargar usuario actual
+    const user = authService.getCurrentUser();
+    setCurrentUser(user);
+    
     loadUnreadCount();
   }, []);
+
+  const handleLogout = () => {
+    authService.logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <nav className="navbar">
@@ -78,12 +90,20 @@ const Navbar = () => {
           </NavLink>
         </li>
 
+        {currentUser && (
+          <li className="navbar__user">
+            <span className="navbar__username">
+              👤 {currentUser.username}
+              {currentUser.role === 'ADMIN' && (
+                <span className="navbar__admin-badge">Admin</span>
+              )}
+            </span>
+          </li>
+        )}
+
         <li className="navbar__logout">
           <button
-            onClick={() => {
-              // TODO: Limpiar token/sesión del localStorage
-              navigate('/login');
-            }}
+            onClick={handleLogout}
             className="navbar__link navbar__link--logout"
           >
              Cerrar Sesión

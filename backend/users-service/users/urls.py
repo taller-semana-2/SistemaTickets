@@ -44,12 +44,12 @@ router.register(r'auth', AuthViewSet, basename='auth')
 
 urlpatterns = [
     # Health check endpoint
-    path('api/health/', HealthCheckView.as_view(), name='health-check'),
+    path('health/', HealthCheckView.as_view(), name='health-check'),
     
     # Auth endpoints
-    path('api/', include(router.urls)),
+    path('', include(router.urls)),
     
     # Ruta custom para login (usando action)
-    path('api/auth/login/', AuthViewSet.as_view({'post': 'login'}), name='auth-login'),
+    path('auth/login/', AuthViewSet.as_view({'post': 'login'}), name='auth-login'),
 ]
 

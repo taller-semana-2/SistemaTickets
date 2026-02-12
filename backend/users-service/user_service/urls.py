@@ -16,5 +16,5 @@ urlpatterns = [
     
     # API de la aplicación users
     # Las rutas de users se configuran en users/urls.py
-    path('', include('users.urls')),  # incluye las rutas /api/users/
+    path('api/', include('users.urls')),  # incluye las rutas /api/auth/, /api/health/
 ]

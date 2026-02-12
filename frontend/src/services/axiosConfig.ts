@@ -27,6 +27,15 @@ export const assignmentApiClient = axios.create({
   },
 });
 
+// Cliente para users-service
+export const usersApiClient = axios.create({
+  baseURL: 'http://localhost:8003/api',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 // Interceptor global para logging (opcional)
 const logRequest = (config: any) => {
   console.log(`→ ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
@@ -46,3 +55,6 @@ notificationApiClient.interceptors.response.use((response) => response, logError
 
 assignmentApiClient.interceptors.request.use(logRequest);
 assignmentApiClient.interceptors.response.use((response) => response, logError);
+
+usersApiClient.interceptors.request.use(logRequest);
+usersApiClient.interceptors.response.use((response) => response, logError);
