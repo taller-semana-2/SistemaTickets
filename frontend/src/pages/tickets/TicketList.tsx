@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ticketApi } from '../../services/ticketApi';
+import { authService } from '../../services/auth';
 import type { Ticket } from '../../types/ticket';
 import TicketItem from './TicketItem';
 import { LoadingState, EmptyState, PageHeader } from '../../components/common';
@@ -12,7 +13,17 @@ const TicketList = () => {
   useEffect(() => {
     ticketApi.getTickets()
       .then((data) => {
-        setTickets(data);
+        // Obtener usuario actual
+        const currentUser = authService.getCurrentUser();
+        
+        // Si es USER, filtrar solo sus tickets
+        if (currentUser && currentUser.role === 'USER') {
+          const userTickets = data.filter(ticket => ticket.user_id === currentUser.id);
+          setTickets(userTickets);
+        } else {
+          // ADMIN ve todos los tickets
+          setTickets(data);
+        }
       })
       .catch((error) => {
         console.error('Error al cargar tickets:', error);
@@ -63,15 +74,20 @@ const TicketList = () => {
     return <LoadingState message="Cargando tickets..." />;
   }
 
+  // Determinar título según rol
+  const currentUser = authService.getCurrentUser();
+  const isUser = currentUser?.role === 'USER';
+  const pageTitle = isUser ? 'Mis Tickets' : 'Panel de Tickets';
+
   return (
     <div className="page-container">
       <PageHeader 
-        title="Panel de Tickets"
+        title={pageTitle}
         subtitle={`${tickets.length} tickets encontrados`}
       />
 
       {tickets.length === 0 ? (
-        <EmptyState message="No hay tickets registrados" />
+        <EmptyState message={isUser ? "No tienes tickets creados" : "No hay tickets registrados"} />
       ) : (
         <div className="tickets-grid">
           {tickets.map((ticket) => (
