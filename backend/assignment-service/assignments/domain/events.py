@@ -3,7 +3,7 @@ Domain Events - Eventos que representan hechos importantes en el dominio.
 """
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 @dataclass
@@ -24,15 +24,19 @@ class AssignmentCreated(DomainEvent):
     assignment_id: int
     ticket_id: str
     priority: str
+    assigned_to: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        event_dict = {
             "event_type": "assignment.created",
             "assignment_id": self.assignment_id,
             "ticket_id": self.ticket_id,
             "priority": self.priority,
             "occurred_at": self.occurred_at.isoformat()
         }
+        if self.assigned_to:
+            event_dict["assigned_to"] = self.assigned_to
+        return event_dict
 
 
 @dataclass

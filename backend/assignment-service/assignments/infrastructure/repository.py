@@ -21,12 +21,14 @@ class DjangoAssignmentRepository(AssignmentRepository):
         if assignment.id:
             model = TicketAssignmentModel.objects.get(id=assignment.id)
             model.priority = assignment.priority
+            model.assigned_to = assignment.assigned_to
             model.save()
         else:
             model = TicketAssignmentModel.objects.create(
                 ticket_id=assignment.ticket_id,
                 priority=assignment.priority,
-                assigned_at=assignment.assigned_at
+                assigned_at=assignment.assigned_at,
+                assigned_to=assignment.assigned_to
             )
         
         return self._to_entity(model)
@@ -64,5 +66,6 @@ class DjangoAssignmentRepository(AssignmentRepository):
             id=model.id,
             ticket_id=model.ticket_id,
             priority=model.priority,
-            assigned_at=model.assigned_at
+            assigned_at=model.assigned_at,
+            assigned_to=model.assigned_to
         )

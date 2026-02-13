@@ -43,6 +43,9 @@ class TicketEventAdapter:
             print("[ASSIGNMENT] Evento sin ticket_id, ignorando")
             return
         
+        # Convertir ticket_id a string (puede venir como int desde el evento)
+        ticket_id = str(ticket_id)
+        
         priority = self._determine_priority(event_data)
         
         use_case = CreateAssignment(self.repository, self.event_publisher)

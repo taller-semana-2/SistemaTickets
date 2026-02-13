@@ -16,11 +16,13 @@ class Assignment:
     - Cada asignación pertenece a un único ticket
     - La prioridad debe ser válida (high, medium, low)
     - La fecha de asignación es inmutable una vez creada
+    - assigned_to es una referencia lógica al usuario (sin foreign key)
     """
     ticket_id: str
     priority: str
     assigned_at: datetime
     id: Optional[int] = None
+    assigned_to: Optional[str] = None
     
     VALID_PRIORITIES = ['high', 'medium', 'low']
     

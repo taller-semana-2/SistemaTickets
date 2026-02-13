@@ -12,6 +12,7 @@ from .infrastructure.repository import DjangoAssignmentRepository
 from .infrastructure.messaging.event_publisher import RabbitMQEventPublisher
 from .application.use_cases.create_assignment import CreateAssignment
 from .application.use_cases.reassign_ticket import ReassignTicket
+from .application.use_cases.update_assigned_user import UpdateAssignedUser
 
 
 class TicketAssignmentViewSet(viewsets.ModelViewSet):
@@ -40,11 +41,16 @@ class TicketAssignmentViewSet(viewsets.ModelViewSet):
         
         ticket_id = serializer.validated_data['ticket_id']
         priority = serializer.validated_data['priority']
+        assigned_to = serializer.validated_data.get('assigned_to')
         
         use_case = CreateAssignment(self.repository, self.event_publisher)
         
         try:
-            assignment = use_case.execute(ticket_id=ticket_id, priority=priority)
+            assignment = use_case.execute(
+                ticket_id=ticket_id,
+                priority=priority,
+                assigned_to=assigned_to
+            )
             
             response_serializer = self.get_serializer(
                 TicketAssignment.objects.get(id=assignment.id)
@@ -83,6 +89,35 @@ class TicketAssignmentViewSet(viewsets.ModelViewSet):
             assignment = use_case.execute(
                 ticket_id=ticket_id,
                 new_priority=new_priority
+            )
+            
+            response_serializer = self.get_serializer(
+                TicketAssignment.objects.get(id=assignment.id)
+            )
+            
+            return Response(response_serializer.data)
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=True, methods=['patch'], url_path='assign-user')
+    def assign_user(self, request, pk=None):
+        """
+        Asigna o reasigna un usuario a una asignación.
+        
+        Endpoint: PATCH /assignments/{id}/assign-user/
+        Body: {"assigned_to": "user_id"}
+        """
+        assigned_to = request.data.get('assigned_to')
+        
+        use_case = UpdateAssignedUser(self.repository, self.event_publisher)
+        
+        try:
+            assignment = use_case.execute(
+                assignment_id=int(pk),
+                assigned_to=assigned_to
             )
             
             response_serializer = self.get_serializer(
