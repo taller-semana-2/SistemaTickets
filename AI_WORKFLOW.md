@@ -4,16 +4,26 @@
 
 Este documento define la **estrategia de interacción con Inteligencia Artificial (IA)** adoptada por el equipo para el desarrollo del *Sistema de Tickets / Soporte*.
 
-El objetivo es usar la IA como un **asistente técnico (Junior Developer)**, manteniendo siempre el control humano sobre las decisiones de arquitectura, calidad y seguridad.
+El objetivo es utilizar la IA no solo como asistente técnico, sino también como una **Puerta de Calidad (Quality Gate)** previa a cada commit, permitiendo detectar riesgos técnicos, deuda inadvertida y violaciones a principios de calidad antes de que el código ingrese al repositorio.
 
 ---
 
-## 2. Principios rectores (AI-First)
+## 2. Principios rectores (AI-First con Control Humano)
 
-1. **La IA no decide arquitectura**: las decisiones estructurales son humanas.
-2. **La IA genera, el equipo valida**: ningún código pasa a producción sin revisión.
-3. **Calidad sobre velocidad**: la IA acelera, pero no justifica deuda técnica.
-4. **QA como guardián**: el rol QA valida código, pruebas y riesgos del output generado por IA.
+1. **La IA no decide arquitectura**  
+   Las decisiones estructurales, de dominio y de integración son responsabilidad exclusiva del equipo humano.
+
+2. **La IA asiste, no reemplaza**  
+   La IA propone, analiza y señala riesgos; el equipo decide.
+
+3. **Calidad antes del commit**  
+   Ningún cambio se integra sin pasar por una validación explícita de calidad apoyada por IA.
+
+4. **La IA como Quality Gate, no como aprobador**  
+   La IA identifica problemas; la aprobación final siempre es humana.
+
+5. **Aprendizaje consciente**  
+   Cada uso de IA debe contribuir al entendimiento del sistema, no ocultarlo.
 
 ---
 
@@ -21,78 +31,122 @@ El objetivo es usar la IA como un **asistente técnico (Junior Developer)**, man
 
 ### 👨‍💻 Developers (Backend / Frontend)
 
-* Usar IA para:
+* Usan la IA para:
+  * Generar boilerplate y prototipos
+  * Refactorizar código
+  * Proponer pruebas unitarias o de integración
+* Son responsables de:
+  * Ejecutar la revisión de calidad asistida por IA antes del commit
+  * Ajustar el código según los hallazgos
+  * No delegar decisiones de diseño a la IA
 
-  * Generar estructuras base (boilerplate)
-  * Prototipos de endpoints
-  * Componentes de UI
-* Refinar y adaptar el código generado.
-* Documentar prompts relevantes.
+---
 
 ### 🧑‍🔬 QA Engineer
 
-* Revisar código generado por IA bajo criterios de:
-
-  * Calidad
-  * Seguridad
+* Define los **criterios de calidad** que la IA debe evaluar:
   * Testabilidad
   * Desacoplamiento
-* Definir y ejecutar pruebas automáticas.
-* Validar que la IA no introduzca malas prácticas.
+  * Cumplimiento de principios SOLID
+  * Manejo correcto de eventos (EDA)
+* Valida:
+  * Que la IA esté siendo usada como gate de calidad
+  * Que los riesgos identificados hayan sido tratados
+* Supervisa que la IA no introduzca:
+  * Acoplamiento innecesario
+  * Lógica duplicada
+  * Dependencias ocultas
 
 ---
 
 ## 4. Metodología de interacción con IA
 
-### 4.1 Flujo estándar
+### 4.1 Flujo estándar de desarrollo
 
-1. Definición humana del problema
-2. Prompt claro y contextualizado a la IA
-3. Generación de código / propuesta
-4. Revisión técnica humana
-5. Ajustes manuales
+1. Definición humana del cambio
+2. Implementación inicial (con o sin IA)
+3. Revisión manual del desarrollador
+4. **Quality Gate asistido por IA**
+5. Corrección de hallazgos
 6. Validación QA
 7. Commit al repositorio
 
 ---
 
-## 5. Tipos de interacciones permitidas
+## 5. IA como Puerta de Calidad (Quality Gate)
+
+Antes de **cada commit**, el desarrollador debe ejecutar una revisión con IA solicitando explícitamente un análisis de calidad.
+
+### 5.1 Objetivo del Quality Gate
+
+La IA debe actuar como un **revisor técnico crítico**, enfocado en detectar:
+
+* Errores de diseño
+* Deuda técnica inadvertida
+* Violaciones a principios SOLID
+* Riesgos en flujos EDA
+* Problemas de testabilidad
+* Uso incorrecto de infraestructura (RabbitMQ, Docker, DB)
+
+---
+
+### 5.2 Checklist de Calidad Evaluado por la IA
+
+La IA debe evaluar explícitamente:
+
+- ¿Existe acoplamiento innecesario?
+- ¿La lógica de dominio está claramente separada?
+- ¿El código es testeable?
+- ¿Los handlers de eventos son idempotentes?
+- ¿Se introducen configuraciones frágiles?
+- ¿Se incrementa la deuda técnica?
+
+---
+
+### 5.3 Estructura obligatoria del prompt de Quality Gate
+
+Antes del commit, el desarrollador debe usar un prompt con la siguiente estructura:
+
+- Contexto del proyecto (DDD + EDA)
+- Rol de la IA: *Quality Gate / Revisor Técnico*
+- Descripción del cambio realizado
+- Código modificado
+- Pregunta explícita:
+  > “¿Qué riesgos técnicos, de diseño o de calidad introduce este cambio?”
+
+---
+
+## 6. Tipos de interacciones permitidas
 
 ### ✅ Permitidas
 
-* Generación de código base
-* Refactorización
-* Sugerencias de tests
-* Explicaciones técnicas
+* Análisis de calidad
+* Revisión de diseño
+* Detección de deuda técnica
+* Sugerencias de mejora
+* Evaluación de testabilidad
+* Análisis de flujos de eventos
+
+---
 
 ### ❌ No permitidas
 
-* Copiar código sin revisión
-* Decisiones de arquitectura sin consenso
+* Aprobar código automáticamente
+* Introducir arquitectura nueva sin consenso
 * Manejo de secretos o credenciales
+* Reemplazar revisiones humanas
 
 ---
 
-## 6. Documentos clave usados como contexto
+## 7. Documentos clave usados como contexto
 
-Antes de interactuar con la IA, se debe proporcionar:
+Para que la IA funcione correctamente como Quality Gate, se debe proveer:
 
-* Descripción del proyecto
-* Arquitectura definida
-* Rol (Developer / QA)
-* Stack tecnológico
-
----
-
-## 7. Estrategia de prompting
-
-### 7.1 Estructura recomendada de prompt
-
-* Contexto del proyecto
-* Rol de la IA
-* Tarea específica
-* Restricciones técnicas
-* Criterios de calidad
+* Arquitectura del sistema
+* Principios DDD y EDA adoptados
+* AI_WORKFLOW.md
+* DEUDA_TECNICA.md
+* CALIDAD.md
 
 ---
 
@@ -100,23 +154,27 @@ Antes de interactuar con la IA, se debe proporcionar:
 
 El QA valida que:
 
-* El código generado es testeable
-* Existen pruebas automáticas
-* No hay dependencias innecesarias
-* El flujo asíncrono se mantiene desacoplado
+* El Quality Gate con IA se ejecutó antes del commit
+* Los hallazgos críticos fueron atendidos
+* No se introdujo deuda técnica innecesaria
+* Las pruebas existentes siguen siendo válidas
 
 ---
 
 ## 9. Riesgos identificados y mitigación
 
-| Riesgo                     | Mitigación              |
-| -------------------------- | ----------------------- |
-| Código inseguro            | Revisión manual + tests |
-| Acoplamiento               | Revisión arquitectónica |
-| Dependencia excesiva de IA | Decisiones humanas      |
+| Riesgo                               | Mitigación                                 |
+|------------------------------------|--------------------------------------------|
+| Confianza excesiva en la IA         | Aprobación humana obligatoria               |
+| Introducción de deuda inadvertida   | IA como Quality Gate + QA                   |
+| Acoplamiento en microservicios     | Revisión EDA y DDD asistida por IA           |
+| Falta de pruebas                    | Validación explícita de testabilidad        |
 
 ---
 
 ## 10. Evolución del documento
 
-Este documento es **vivo** y se actualizará conforme evolucione el proyecto y el uso de IA.
+Este documento es **vivo** y evolucionará conforme el equipo:
+- Mejore su madurez técnica
+- Ajuste sus criterios de calidad
+- Profundice en el uso responsable de IA
