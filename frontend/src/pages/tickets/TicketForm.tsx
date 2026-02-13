@@ -3,7 +3,7 @@ import type { CreateTicketDTO } from '../../types/ticket';
 import './TicketForm.css';
 
 interface Props {
-  onSubmit: (data: CreateTicketDTO) => void;
+  onSubmit: (data: Omit<CreateTicketDTO, 'user_id'>) => void;
 }
 
 const TicketForm = ({ onSubmit }: Props) => {

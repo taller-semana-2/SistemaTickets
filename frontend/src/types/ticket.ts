@@ -5,12 +5,14 @@ export interface Ticket {
   title: string;
   description: string;
   status: TicketStatus;
+  user_id: string;
   created_at: string;
 }
 
 export interface CreateTicketDTO {
   title: string;
   description: string;
+  user_id: string;
 }
 
 

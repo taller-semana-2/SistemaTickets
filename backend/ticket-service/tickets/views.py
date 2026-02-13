@@ -139,3 +139,33 @@ class TicketViewSet(viewsets.ModelViewSet):
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+    
+    @action(detail=False, methods=["get"], url_path="my-tickets/(?P<user_id>[^/.]+)")
+    def my_tickets(self, request, user_id=None):
+        """
+        Obtiene todos los tickets de un usuario específico.
+        
+        GET /api/tickets/my-tickets/{user_id}/
+        
+        Args:
+            user_id: ID del usuario cuyos tickets se quieren obtener
+            
+        Returns:
+            Lista de tickets del usuario
+        """
+        try:
+            # Filtrar tickets por user_id
+            tickets = Ticket.objects.filter(user_id=user_id).order_by("-created_at")
+            
+            # Serializar y retornar
+            serializer = TicketSerializer(tickets, many=True)
+            return Response(
+                serializer.data,
+                status=status.HTTP_200_OK,
+            )
+            
+        except Exception as e:
+            return Response(
+                {"error": f"Error al obtener tickets: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

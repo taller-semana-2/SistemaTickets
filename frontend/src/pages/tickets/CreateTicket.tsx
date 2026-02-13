@@ -1,15 +1,38 @@
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import TicketForm from './TicketForm';
 import { ticketApi } from '../../services/ticketApi';
+import { authService } from '../../services/auth';
 import type { CreateTicketDTO } from '../../types/ticket';
 import './CreateTicket.css';
 
 const CreateTicket = () => {
   const navigate = useNavigate();
+  const [error, setError] = useState('');
 
-  const handleCreate = async (data: CreateTicketDTO) => {
-    await ticketApi.createTicket(data);
-    navigate('/tickets');
+  const handleCreate = async (data: Omit<CreateTicketDTO, 'user_id'>) => {
+    try {
+      // Obtener usuario autenticado
+      const currentUser = authService.getCurrentUser();
+      
+      if (!currentUser) {
+        setError('Debes iniciar sesión para crear un ticket');
+        navigate('/login');
+        return;
+      }
+
+      // Crear ticket con user_id
+      const ticketData: CreateTicketDTO = {
+        ...data,
+        user_id: currentUser.id,
+      };
+
+      await ticketApi.createTicket(ticketData);
+      navigate('/tickets');
+    } catch (err: any) {
+      console.error('Error creating ticket:', err);
+      setError(err.response?.data?.error || 'Error al crear el ticket');
+    }
   };
 
   return (
@@ -20,6 +43,20 @@ const CreateTicket = () => {
           Completa el formulario para crear un nuevo ticket de soporte
         </p>
       </div>
+      
+      {error && (
+        <div className="error-message" style={{
+          backgroundColor: '#fee2e2',
+          border: '1px solid #ef4444',
+          color: '#dc2626',
+          padding: '12px',
+          borderRadius: '8px',
+          marginBottom: '16px'
+        }}>
+          {error}
+        </div>
+      )}
+      
       <TicketForm onSubmit={handleCreate} />
     </div>
   );
