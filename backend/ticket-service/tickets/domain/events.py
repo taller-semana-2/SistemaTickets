@@ -21,6 +21,7 @@ class TicketCreated(DomainEvent):
     title: str
     description: str
     status: str
+    user_id: str
 
 
 @dataclass(frozen=True)

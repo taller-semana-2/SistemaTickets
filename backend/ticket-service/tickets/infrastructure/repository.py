@@ -32,13 +32,15 @@ class DjangoTicketRepository(TicketRepository):
             django_ticket.title = ticket.title
             django_ticket.description = ticket.description
             django_ticket.status = ticket.status
-            django_ticket.save(update_fields=['title', 'description', 'status'])
+            django_ticket.user_id = ticket.user_id
+            django_ticket.save(update_fields=['title', 'description', 'status', 'user_id'])
         else:
             # Crear nuevo ticket
             django_ticket = DjangoTicket.objects.create(
                 title=ticket.title,
                 description=ticket.description,
-                status=ticket.status
+                status=ticket.status,
+                user_id=ticket.user_id
             )
             ticket.id = django_ticket.id
         
@@ -98,6 +100,7 @@ class DjangoTicketRepository(TicketRepository):
                 django_ticket.title = domain_ticket.title
                 django_ticket.description = domain_ticket.description
                 django_ticket.status = domain_ticket.status
+                django_ticket.user_id = domain_ticket.user_id
                 return django_ticket
             except DjangoTicket.DoesNotExist:
                 pass
@@ -108,6 +111,7 @@ class DjangoTicketRepository(TicketRepository):
             title=domain_ticket.title,
             description=domain_ticket.description,
             status=domain_ticket.status,
+            user_id=domain_ticket.user_id,
             created_at=getattr(domain_ticket, 'created_at', None)
         )
     
@@ -127,5 +131,6 @@ class DjangoTicketRepository(TicketRepository):
             title=django_ticket.title,
             description=django_ticket.description,
             status=django_ticket.status,
+            user_id=django_ticket.user_id,
             created_at=django_ticket.created_at
         )

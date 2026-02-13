@@ -19,4 +19,5 @@ class Ticket(models.Model):
         choices=STATUS_CHOICES,
         default=OPEN,
     )
+    user_id = models.CharField(max_length=255, help_text="ID del usuario que creó el ticket (referencia lógica, no FK)")
     created_at = models.DateTimeField(auto_now_add=True)

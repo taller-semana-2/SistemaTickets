@@ -71,7 +71,8 @@ class TicketViewSet(viewsets.ModelViewSet):
             # Crear comando desde los datos validados
             command = CreateTicketCommand(
                 title=serializer.validated_data['title'],
-                description=serializer.validated_data['description']
+                description=serializer.validated_data['description'],
+                user_id=serializer.validated_data['user_id']
             )
             
             # Ejecutar caso de uso (maneja dominio, persistencia y eventos)

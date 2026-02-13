@@ -19,6 +19,7 @@ class CreateTicketCommand:
     """Comando: Crear un nuevo ticket."""
     title: str
     description: str
+    user_id: str
 
 
 @dataclass
@@ -72,7 +73,8 @@ class CreateTicketUseCase:
         # 1. Crear entidad de dominio usando factory (valida)
         ticket = self.factory.create(
             title=command.title,
-            description=command.description
+            description=command.description,
+            user_id=command.user_id
         )
         
         # 2. Persistir el ticket
@@ -84,7 +86,8 @@ class CreateTicketUseCase:
             ticket_id=ticket.id,
             title=ticket.title,
             description=ticket.description,
-            status=ticket.status
+            status=ticket.status,
+            user_id=ticket.user_id
         )
         
         # 4. Publicar evento

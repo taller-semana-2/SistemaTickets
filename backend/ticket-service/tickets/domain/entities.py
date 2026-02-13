@@ -28,6 +28,7 @@ class Ticket:
     title: str
     description: str
     status: str
+    user_id: str
     created_at: datetime
     
     # Lista de eventos de dominio generados por cambios en la entidad
@@ -92,13 +93,14 @@ class Ticket:
         return events
     
     @staticmethod
-    def create(title: str, description: str) -> "Ticket":
+    def create(title: str, description: str, user_id: str) -> "Ticket":
         """
         Crea un nuevo ticket en estado OPEN (método factory).
         
         Args:
             title: Título del ticket
             description: Descripción del ticket
+            user_id: ID del usuario que crea el ticket
             
         Returns:
             Nueva instancia de Ticket
@@ -108,6 +110,7 @@ class Ticket:
             title=title,
             description=description,
             status=Ticket.OPEN,
+            user_id=user_id,
             created_at=datetime.now()
         )
         
