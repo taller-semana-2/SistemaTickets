@@ -1,22 +1,18 @@
 """
-Tests de la capa de dominio (puro Python, sin Django).
-Prueban reglas de negocio, entidades, factories y excepciones.
+Tests unitarios de la entidad Ticket (State Machine).
+Prueban reglas de negocio y transiciones de estados.
 """
 
-import pytest
+
 from datetime import datetime
 
 from tickets.domain.entities import Ticket
-from tickets.domain.factories import TicketFactory
-from tickets.domain.exceptions import (
-    InvalidTicketData,
-    TicketAlreadyClosed
-)
-from tickets.domain.events import TicketCreated, TicketStatusChanged
+from tickets.domain.exceptions import TicketAlreadyClosed
+from tickets.domain.events import TicketStatusChanged
 
 
 class TestTicketEntity:
-    """Tests de la entidad Ticket (reglas de negocio)."""
+    """Tests de la entidad Ticket y sus reglas de negocio."""
     
     def test_create_ticket_with_valid_data(self):
         """Crear un ticket con datos válidos inicia en estado OPEN."""
@@ -77,7 +73,7 @@ class TestTicketEntity:
         assert events[0].new_status == Ticket.CLOSED
     
     def test_cannot_change_status_of_closed_ticket(self):
-        """No se puede cambiar el estado de un ticket cerrado."""
+        """No se puede cambiar el estado de un ticket cerrado (regla de negocio)."""
         ticket = Ticket(
             id=1,
             title="Test",
@@ -160,78 +156,54 @@ class TestTicketEntity:
         assert len(events2) == 0
 
 
-class TestTicketFactory:
-    """Tests del factory para creación de tickets."""
+class TestTicketStateMachine:
+    """Tests de la máquina de estados del ticket."""
     
-    def test_factory_creates_valid_ticket(self):
-        """Factory crea un ticket válido en estado OPEN."""
-        ticket = TicketFactory.create("Title", "Description")
+    def test_all_valid_state_transitions(self):
+        """Todas las transiciones de estado válidas funcionan correctamente."""
+        # OPEN -> IN_PROGRESS
+        ticket = Ticket(1, "T", "D", Ticket.OPEN, datetime.now())
+        ticket.change_status(Ticket.IN_PROGRESS)
+        assert ticket.status == Ticket.IN_PROGRESS
         
-        assert ticket.title == "Title"
-        assert ticket.description == "Description"
-        assert ticket.status == Ticket.OPEN
-        assert ticket.id is None
-    
-    def test_factory_rejects_empty_title(self):
-        """Factory rechaza título vacío."""
-        with pytest.raises(InvalidTicketData, match="título"):
-            TicketFactory.create("", "Description")
-    
-    def test_factory_rejects_whitespace_only_title(self):
-        """Factory rechaza título con solo espacios."""
-        with pytest.raises(InvalidTicketData, match="título"):
-            TicketFactory.create("   ", "Description")
-    
-    def test_factory_rejects_empty_description(self):
-        """Factory rechaza descripción vacía."""
-        with pytest.raises(InvalidTicketData, match="descripción"):
-            TicketFactory.create("Title", "")
-    
-    def test_factory_rejects_whitespace_only_description(self):
-        """Factory rechaza descripción con solo espacios."""
-        with pytest.raises(InvalidTicketData, match="descripción"):
-            TicketFactory.create("Title", "   ")
-    
-    def test_factory_strips_whitespace(self):
-        """Factory elimina espacios en blanco al inicio y final."""
-        ticket = TicketFactory.create("  Title  ", "  Description  ")
+        # IN_PROGRESS -> CLOSED
+        ticket2 = Ticket(2, "T", "D", Ticket.IN_PROGRESS, datetime.now())
+        ticket2.change_status(Ticket.CLOSED)
+        assert ticket2.status == Ticket.CLOSED
         
-        assert ticket.title == "Title"
-        assert ticket.description == "Description"
+        # OPEN -> CLOSED (salto directo permitido)
+        ticket3 = Ticket(3, "T", "D", Ticket.OPEN, datetime.now())
+        ticket3.change_status(Ticket.CLOSED)
+        assert ticket3.status == Ticket.CLOSED
     
-    def test_factory_preserves_internal_whitespace(self):
-        """Factory preserva espacios internos en título y descripción."""
-        ticket = TicketFactory.create("Test  Title", "Test  Description")
+    def test_closed_is_final_state(self):
+        """CLOSED es un estado final, no permite transiciones."""
+        ticket = Ticket(1, "T", "D", Ticket.CLOSED, datetime.now())
         
-        assert ticket.title == "Test  Title"
-        assert ticket.description == "Test  Description"
-
-
-class TestDomainEvents:
-    """Tests de eventos de dominio."""
+        # Intentar cualquier transición desde CLOSED falla
+        with pytest.raises(TicketAlreadyClosed):
+            ticket.change_status(Ticket.OPEN)
+        
+        with pytest.raises(TicketAlreadyClosed):
+            ticket.change_status(Ticket.IN_PROGRESS)
+        
+        with pytest.raises(TicketAlreadyClosed):
+            ticket.change_status(Ticket.CLOSED)
     
-    def test_ticket_created_event_is_immutable(self):
-        """Los eventos de dominio son inmutables (frozen)."""
-        event = TicketCreated(
-            occurred_at=datetime.now(),
-            ticket_id=1,
-            title="Test",
-            description="Desc",
-            status="OPEN"
-        )
+    def test_state_machine_generates_correct_events(self):
+        """La máquina de estados genera eventos correctos en cada transición."""
+        ticket = Ticket(1, "Test", "Desc", Ticket.OPEN, datetime.now())
         
-        # Intentar modificar debe fallar
-        with pytest.raises(Exception):  # dataclass frozen raises
-            event.ticket_id = 999
-    
-    def test_ticket_status_changed_event_is_immutable(self):
-        """TicketStatusChanged es inmutable."""
-        event = TicketStatusChanged(
-            occurred_at=datetime.now(),
-            ticket_id=1,
-            old_status="OPEN",
-            new_status="CLOSED"
-        )
+        # OPEN -> IN_PROGRESS
+        ticket.change_status(Ticket.IN_PROGRESS)
+        events = ticket.collect_domain_events()
+        assert len(events) == 1
+        assert events[0].old_status == Ticket.OPEN
+        assert events[0].new_status == Ticket.IN_PROGRESS
         
-        with pytest.raises(Exception):
-            event.new_status = "OTHER"
+        # IN_PROGRESS -> CLOSED
+        ticket.change_status(Ticket.CLOSED)
+        events = ticket.collect_domain_events()
+        assert len(events) == 1
+        assert events[0].old_status == Ticket.IN_PROGRESS
+        assert events[0].new_status == Ticket.CLOSED
