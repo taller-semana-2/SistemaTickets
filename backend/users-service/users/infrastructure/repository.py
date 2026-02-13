@@ -111,6 +111,19 @@ class DjangoUserRepository(UserRepository):
         """
         DjangoUser.objects.filter(pk=user_id).delete()
     
+    def find_by_role(self, role: UserRole) -> List[DomainUser]:
+        """
+        Busca usuarios por rol.
+        
+        Args:
+            role: Rol a filtrar (UserRole enum)
+            
+        Returns:
+            Lista de entidades de dominio con ese rol
+        """
+        django_users = DjangoUser.objects.filter(role=role.value).order_by('username')
+        return [self._to_domain(du) for du in django_users]
+    
     def to_django_model(self, domain_user: DomainUser) -> DjangoUser:
         """
         Convierte una entidad de dominio a modelo Django sin hacer query adicional.

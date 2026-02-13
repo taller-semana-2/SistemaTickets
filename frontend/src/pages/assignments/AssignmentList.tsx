@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { assignmentsApi } from '../../services/assignment';
 import {LoadingState, EmptyState, PageHeader } from '../../components/common';
 import type { Assignment } from '../../types/assignment';
+import TicketAssign from '../../components/TicketAssign';
 import './AssignmentList.css';
 
 interface UIAssignment extends Assignment {
@@ -48,6 +49,12 @@ const AssignmentList = () => {
         a.id === id ? { ...a, completed: true, managing: false } : a
       )
     );
+  };
+
+  const handleAssign = (assignmentId: number, userId: string) => {
+    console.log(`Asignando ticket de assignment ${assignmentId} al usuario ${userId}`);
+    // TODO: Integrar con backend cuando esté disponible
+    alert(`Ticket asignado al usuario ${userId}`);
   };
 
   const handleDelete = async (id: number) => {
@@ -116,6 +123,12 @@ const AssignmentList = () => {
 
               {item.managing && (
                 <div className="assignment-actions">
+                  <TicketAssign
+                    ticketId={item.ticket_id}
+                    currentAssignedId={item.assigned_to}
+                    onAssign={(userId) => handleAssign(item.id, userId)}
+                  />
+
                   {!item.completed && (
                     <button
                       className="btn-complete"

@@ -10,7 +10,7 @@ Esto permite inyección de dependencias y desacopla el dominio de la infraestruc
 from abc import ABC, abstractmethod
 from typing import Optional, List
 
-from .entities import User
+from .entities import User, UserRole
 
 
 class UserRepository(ABC):
@@ -90,5 +90,18 @@ class UserRepository(ABC):
         
         Args:
             user_id: ID del usuario a eliminar
+        """
+        pass
+    
+    @abstractmethod
+    def find_by_role(self, role: UserRole) -> List[User]:
+        """
+        Busca usuarios por rol.
+        
+        Args:
+            role: Rol a filtrar (UserRole enum)
+            
+        Returns:
+            Lista de entidades User con ese rol
         """
         pass

@@ -127,13 +127,16 @@ Thin controllers que delegan TODA la lógica a los casos de uso.
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from django.db import connection
 
 from .application.use_cases import (
     RegisterUserCommand,
     LoginCommand,
+    GetUsersByRoleCommand,
     RegisterUserUseCase,
-    LoginUseCase
+    LoginUseCase,
+    GetUsersByRoleUseCase
 )
 from .infrastructure.repository import DjangoUserRepository
 from .infrastructure.event_publisher import RabbitMQEventPublisher
@@ -286,6 +289,37 @@ class AuthViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_401_UNAUTHORIZED
             )
+        except Exception as e:
+            return Response(
+                {'error': f'Error inesperado: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'], url_path='by-role/(?P<role>[^/.]+)')
+    def by_role(self, request, role=None):
+        """
+        GET /api/auth/by-role/{role}/
+        Obtener usuarios por rol (ADMIN o USER)
+        """
+        try:
+            command = GetUsersByRoleCommand(role=role)
+            use_case = GetUsersByRoleUseCase(repository=self.repository)
+            users = use_case.execute(command)
+            
+            # Serializar lista de usuarios
+            users_data = [
+                {
+                    'id': user.id,
+                    'email': user.email,
+                    'username': user.username,
+                    'role': user.role.value,
+                    'is_active': user.is_active
+                }
+                for user in users
+            ]
+            
+            return Response(users_data, status=status.HTTP_200_OK)
+        
         except Exception as e:
             return Response(
                 {'error': f'Error inesperado: {str(e)}'},

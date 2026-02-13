@@ -93,10 +93,20 @@
 
 .assignment-actions {
   display: flex;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.75rem;
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.assignment-actions .ticket-assign {
+  width: 100%;
+}
+
+.assignment-actions .btn-complete,
+.assignment-actions .btn-delete {
+  width: 100%;
 }
 
 .btn-complete {
@@ -109,7 +119,6 @@
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  flex: 1;
 }
 
 .btn-complete:hover {

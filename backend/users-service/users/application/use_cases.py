@@ -54,6 +54,12 @@ class LoginCommand:
     password: str
 
 
+@dataclass
+class GetUsersByRoleCommand:
+    """Comando: Obtener usuarios por rol."""
+    role: str
+
+
 class CreateUserUseCase:
     """
     Caso de uso: Crear un nuevo usuario.
@@ -428,3 +434,36 @@ class LoginUseCase:
             Hash SHA-256 del password
         """
         return hashlib.sha256(password.encode()).hexdigest()
+
+
+class GetUsersByRoleUseCase:
+    """
+    Caso de uso: Obtener usuarios por rol.
+    
+    Responsabilidades:
+    1. Validar que el rol sea válido
+    2. Obtener usuarios del repositorio filtrados por rol
+    3. Retornar lista de usuarios
+    """
+    
+    def __init__(self, repository: UserRepository):
+        self.repository = repository
+    
+    def execute(self, command: GetUsersByRoleCommand) -> list[User]:
+        """
+        Ejecuta el caso de uso de obtener usuarios por rol.
+        
+        Args:
+            command: Comando con el rol a filtrar
+            
+        Returns:
+            Lista de usuarios con el rol especificado
+        """
+        # Validar que el rol sea válido
+        try:
+            role = UserRole[command.role.upper()]
+        except KeyError:
+            return []
+        
+        # Obtener usuarios por rol
+        return self.repository.find_by_role(role)
