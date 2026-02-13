@@ -4,7 +4,7 @@ import type { AdminUser } from '../services/user';
 import './TicketAssign.css';
 
 interface TicketAssignProps {
-  ticketId?: number;
+  ticketId?: number | string;
   currentAssignedId?: string;
   onAssign?: (userId: string) => void;
 }

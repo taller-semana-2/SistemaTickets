@@ -51,10 +51,24 @@ const AssignmentList = () => {
     );
   };
 
-  const handleAssign = (assignmentId: number, userId: string) => {
-    console.log(`Asignando ticket de assignment ${assignmentId} al usuario ${userId}`);
-    // TODO: Integrar con backend cuando esté disponible
-    alert(`Ticket asignado al usuario ${userId}`);
+  const handleAssign = async (assignmentId: number, userId: string) => {
+    try {
+      const updatedAssignment = await assignmentsApi.assignUser(assignmentId, userId);
+      
+      // Actualizar en el estado local
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.id === assignmentId
+            ? { ...a, assigned_to: updatedAssignment.assigned_to }
+            : a
+        )
+      );
+      
+      alert(`✅ Ticket asignado exitosamente`);
+    } catch (error) {
+      console.error('Error asignando usuario:', error);
+      alert('❌ No se pudo asignar el ticket');
+    }
   };
 
   const handleDelete = async (id: number) => {
