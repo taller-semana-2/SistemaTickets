@@ -5,11 +5,44 @@ import type { Assignment } from '../../types/assignment';
 import TicketAssign from '../../components/TicketAssign';
 import './AssignmentList.css';
 
+/**
+ * Extensión de la interfaz {@link Assignment} con campos de estado de UI.
+ *
+ * Agrega propiedades efímeras que controlan el comportamiento visual
+ * de cada tarjeta de asignación en la interfaz, sin modificar los datos
+ * persistidos en el backend.
+ *
+ * @interface UIAssignment
+ * @extends {Assignment}
+ * @property {boolean} [managing] - Indica si el panel de gestión (reasignar,
+ *   completar, eliminar) está visible para esta asignación.
+ * @property {boolean} [completed] - Indica si la asignación fue marcada
+ *   como completada en la sesión actual (estado local, no persistido).
+ */
 interface UIAssignment extends Assignment {
   managing?: boolean;
   completed?: boolean;
 }
 
+/**
+ * Componente de página que muestra y gestiona las asignaciones del usuario.
+ *
+ * Carga la lista de asignaciones desde el backend (`assignmentsApi`) y
+ * permite al usuario:
+ * - **Ver** todas sus asignaciones con prioridad y fecha.
+ * - **Gestionar** cada asignación (toggle del panel de acciones).
+ * - **Reasignar** un ticket a otro usuario mediante {@link TicketAssign}.
+ * - **Completar** una asignación (marcado visual local).
+ * - **Eliminar** una asignación con confirmación previa.
+ *
+ * @example
+ * ```tsx
+ * <Route path="/assignments" element={<AssignmentList />} />
+ * ```
+ *
+ * @returns {JSX.Element} Grid de tarjetas de asignación con estados de
+ *   carga, vacío y error manejados internamente.
+ */
 const AssignmentList = () => {
   const [assignments, setAssignments] = useState<UIAssignment[]>([]);
   const [loading, setLoading] = useState(true);
