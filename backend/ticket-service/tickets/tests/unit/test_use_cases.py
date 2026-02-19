@@ -475,6 +475,59 @@ class TestChangeTicketPriorityUseCase:
         assert event.old_priority == "Low"
         assert event.new_priority == "High"
 
+    def test_priority_change_blocked_on_closed_ticket(self):
+        """
+        EP5: Cambio de prioridad bloqueado en ticket Closed.
+
+        Scenario: Administrador intenta cambiar prioridad de ticket Closed (EP5)
+          Given un ticket en estado "Closed" con prioridad "Low"
+          And el usuario autenticado tiene rol "Administrador"
+          When intenta cambiar la prioridad a "High"
+          Then el sistema lanza la excepción TicketAlreadyClosed
+          And la prioridad del ticket permanece en "Low"
+          And no se persiste ningún cambio
+          And no se publica ningún evento de dominio
+        """
+        # Arrange
+        from tickets.application.use_cases import (
+            ChangeTicketPriorityUseCase,
+            ChangeTicketPriorityCommand
+        )
+
+        mock_repo = Mock(spec=TicketRepository)
+        mock_publisher = Mock(spec=EventPublisher)
+
+        # Ticket existente en estado CLOSED con prioridad Low
+        existing_ticket = Ticket(
+            id=4,
+            title="Closed Ticket",
+            description="Test Description",
+            status=Ticket.CLOSED,
+            user_id="user123",
+            created_at=datetime.now(),
+            priority="Low"
+        )
+        mock_repo.find_by_id.return_value = existing_ticket
+        mock_repo.save.return_value = existing_ticket
+
+        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
+        command = ChangeTicketPriorityCommand(
+            ticket_id=4,
+            new_priority="High"
+        )
+        command.user_role = "Administrador"
+
+        # Act & Assert
+        with pytest.raises(TicketAlreadyClosed):
+            use_case.execute(command)
+
+        # La prioridad debe permanecer sin cambios
+        assert existing_ticket.priority == "Low"
+
+        # No debe persistir ni publicar eventos
+        mock_repo.save.assert_not_called()
+        mock_publisher.publish.assert_not_called()
+
 
 class TestChangeTicketStatusValidation:
     """Tests para validación de transiciones de estado inválidas."""
