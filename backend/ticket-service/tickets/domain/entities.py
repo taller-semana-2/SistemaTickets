@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
 
-from .events import DomainEvent, TicketCreated, TicketStatusChanged
+from .events import DomainEvent, TicketCreated, TicketStatusChanged, TicketPriorityChanged
 from .exceptions import TicketAlreadyClosed
 
 
@@ -30,6 +30,7 @@ class Ticket:
     status: str
     user_id: str
     created_at: datetime
+    priority: str = "Unassigned"  # Prioridad por defecto
     
     # Lista de eventos de dominio generados por cambios en la entidad
     _domain_events: List[DomainEvent] = field(default_factory=list, init=False, repr=False)
@@ -77,6 +78,34 @@ class Ticket:
             ticket_id=self.id,
             old_status=old_status,
             new_status=new_status
+        )
+        self._domain_events.append(event)
+    
+    def change_priority(self, new_priority: str) -> None:
+        """
+        Cambia la prioridad del ticket aplicando reglas de negocio.
+        
+        Reglas:
+        - El cambio es idempotente (si ya tiene esa prioridad, no hace nada)
+        - Cada cambio válido genera un evento de dominio
+        
+        Args:
+            new_priority: Nueva prioridad del ticket
+        """
+        # Idempotencia: Si la prioridad es la misma, no hacer nada
+        if self.priority == new_priority:
+            return
+        
+        # Cambiar prioridad
+        old_priority = self.priority
+        self.priority = new_priority
+        
+        # Generar evento de dominio
+        event = TicketPriorityChanged(
+            occurred_at=datetime.now(),
+            ticket_id=self.id,
+            old_priority=old_priority,
+            new_priority=new_priority
         )
         self._domain_events.append(event)
     

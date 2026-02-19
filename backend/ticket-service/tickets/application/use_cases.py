@@ -29,6 +29,13 @@ class ChangeTicketStatusCommand:
     new_status: str
 
 
+@dataclass
+class ChangeTicketPriorityCommand:
+    """Comando: Cambiar la prioridad de un ticket."""
+    ticket_id: int
+    new_priority: str
+
+
 class CreateTicketUseCase:
     """
     Caso de uso: Crear un nuevo ticket.
@@ -144,6 +151,65 @@ class ChangeTicketStatusUseCase:
         
         # 2. Aplicar cambio de estado (reglas de negocio en la entidad)
         ticket.change_status(command.new_status)
+        
+        # 3. Persistir el cambio
+        ticket = self.repository.save(ticket)
+        
+        # 4. Recolectar y publicar eventos de dominio generados
+        events = ticket.collect_domain_events()
+        for event in events:
+            self.event_publisher.publish(event)
+        
+        return ticket
+
+
+class ChangeTicketPriorityUseCase:
+    """
+    Caso de uso: Cambiar la prioridad de un ticket.
+    
+    Responsabilidades:
+    1. Obtener el ticket del repositorio
+    2. Aplicar el cambio de prioridad (reglas de negocio)
+    3. Persistir el cambio
+    4. Publicar eventos de dominio generados
+    """
+    
+    def __init__(
+        self,
+        repository: TicketRepository,
+        event_publisher: EventPublisher
+    ):
+        """
+        Inyección de dependencias (DIP).
+        
+        Args:
+            repository: Repositorio para persistencia
+            event_publisher: Publicador de eventos
+        """
+        self.repository = repository
+        self.event_publisher = event_publisher
+    
+    def execute(self, command: ChangeTicketPriorityCommand) -> Ticket:
+        """
+        Ejecuta el caso de uso de cambio de prioridad.
+        
+        Args:
+            command: Comando con el ID del ticket y la nueva prioridad
+            
+        Returns:
+            El ticket actualizado
+            
+        Raises:
+            ValueError: Si el ticket no existe
+        """
+        # 1. Obtener el ticket
+        ticket = self.repository.find_by_id(command.ticket_id)
+        
+        if not ticket:
+            raise ValueError(f"Ticket {command.ticket_id} no encontrado")
+        
+        # 2. Aplicar cambio de prioridad (reglas de negocio en la entidad)
+        ticket.change_priority(command.new_priority)
         
         # 3. Persistir el cambio
         ticket = self.repository.save(ticket)
