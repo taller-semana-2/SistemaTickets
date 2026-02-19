@@ -528,6 +528,67 @@ class TestChangeTicketPriorityUseCase:
         mock_repo.save.assert_not_called()
         mock_publisher.publish.assert_not_called()
 
+    @pytest.mark.parametrize("priority", ["Low", "Medium", "High"])
+    def test_change_to_each_valid_priority(self, priority: str):
+        """
+        EP6: Cambio a prioridad válida es exitoso.
+
+        Scenario Outline: Cambio a prioridad válida es exitoso (EP6)
+          Given un ticket en estado "Open" con prioridad "Unassigned"
+          And el usuario autenticado tiene rol "Administrador"
+          When intenta cambiar la prioridad a "<prioridad>"
+          Then la prioridad del ticket se actualiza a "<prioridad>"
+          And se genera un evento TicketPriorityChanged con old_priority="Unassigned" y new_priority="<prioridad>"
+        """
+        # Arrange
+        from tickets.application.use_cases import (
+            ChangeTicketPriorityUseCase,
+            ChangeTicketPriorityCommand
+        )
+        from tickets.domain.events import TicketPriorityChanged
+
+        mock_repo = Mock(spec=TicketRepository)
+        mock_publisher = Mock(spec=EventPublisher)
+
+        existing_ticket = Ticket(
+            id=6,
+            title="Test Ticket EP6",
+            description="Test Description",
+            status=Ticket.OPEN,
+            user_id="user123",
+            created_at=datetime.now(),
+            priority="Unassigned"
+        )
+        mock_repo.find_by_id.return_value = existing_ticket
+        mock_repo.save.return_value = existing_ticket
+
+        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
+        command = ChangeTicketPriorityCommand(
+            ticket_id=6,
+            new_priority=priority
+        )
+        command.user_role = "Administrador"
+
+        # Act
+        updated_ticket = use_case.execute(command)
+
+        # Assert — priority is updated
+        assert updated_ticket.priority == priority
+
+        # Assert — repository looked up by correct ID
+        mock_repo.find_by_id.assert_called_once_with(6)
+
+        # Assert — save was called once
+        mock_repo.save.assert_called_once()
+
+        # Assert — TicketPriorityChanged event published with correct data
+        mock_publisher.publish.assert_called_once()
+        event = mock_publisher.publish.call_args[0][0]
+        assert isinstance(event, TicketPriorityChanged)
+        assert event.ticket_id == 6
+        assert event.old_priority == "Unassigned"
+        assert event.new_priority == priority
+
 
 class TestChangeTicketStatusValidation:
     """Tests para validación de transiciones de estado inválidas."""
