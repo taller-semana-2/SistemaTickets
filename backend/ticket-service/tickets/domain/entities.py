@@ -182,9 +182,14 @@ class Ticket:
             new_priority: Nueva prioridad del ticket
             
         Raises:
+            TicketAlreadyClosed: Si el ticket está cerrado
             InvalidPriorityTransition: Si la transición no es válida
             ValueError: Si la prioridad no es un valor válido
         """
+        # Regla: No se puede cambiar la prioridad de un ticket cerrado
+        if self.status == self.CLOSED:
+            raise TicketAlreadyClosed(self.id)
+        
         # Validar que la nueva prioridad sea válida
         self._validate_priority_value(new_priority)
         
