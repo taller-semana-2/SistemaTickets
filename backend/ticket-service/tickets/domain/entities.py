@@ -46,15 +46,47 @@ class Ticket:
         if self.status not in [self.OPEN, self.IN_PROGRESS, self.CLOSED]:
             raise ValueError(f"Estado inválido: {self.status}")
     
+    def _validate_state_transition(self, new_status: str) -> None:
+        """
+        Valida que la transición de estado sea válida.
+        
+        Transiciones válidas:
+        - OPEN → IN_PROGRESS
+        - IN_PROGRESS → CLOSED
+        - OPEN → OPEN, IN_PROGRESS → IN_PROGRESS, CLOSED → CLOSED (idempotentes)
+        
+        Transiciones inválidas:
+        - OPEN → CLOSED (debe pasar por IN_PROGRESS primero)
+        - Cualquier transición desde CLOSED
+        
+        Args:
+            new_status: Nuevo status a validar
+            
+        Raises:
+            InvalidTicketStateTransition: Si la transición no es válida
+        """
+        # Transición inválida: OPEN → CLOSED tiene que pasar por IN_PROGRESS
+        if self.status == self.OPEN and new_status == self.CLOSED:
+            raise InvalidTicketStateTransition(
+                self.status,
+                new_status
+            )
+    
     def change_status(self, new_status: str) -> None:
         """
         Cambia el estado del ticket aplicando reglas de negocio.
         
-        Reglas:
-        - No se puede cambiar el estado de un ticket cerrado
-        - No se puede transicionar directamente de OPEN a CLOSED (debe pasar por IN_PROGRESS)
-        - El cambio es idempotente (si ya tiene ese estado, no hace nada)
-        - Cada cambio válido genera un evento de dominio
+        Transiciones válidas:
+        ┌─────────────┬──────────────┬─────────┐
+        │ Estado      │ Estado nuevo │ Válida  │
+        ├─────────────┼──────────────┼─────────┤
+        │ OPEN        │ OPEN         │ Sí (no-op) │
+        │ OPEN        │ IN_PROGRESS  │ Sí      │
+        │ OPEN        │ CLOSED       │ No      │
+        │ IN_PROGRESS │ IN_PROGRESS  │ Sí (no-op) │
+        │ IN_PROGRESS │ CLOSED       │ Sí      │
+        │ CLOSED      │ *            │ No      │
+        └─────────────┴──────────────┴─────────┘
         
         Args:
             new_status: Nuevo estado del ticket
@@ -72,13 +104,12 @@ class Ticket:
         if self.status == self.CLOSED:
             raise TicketAlreadyClosed(self.id)
         
-        # Regla: No se puede transicionar directamente de OPEN a CLOSED
-        if self.status == self.OPEN and new_status == self.CLOSED:
-            raise InvalidTicketStateTransition(self.status, new_status)
-        
         # Idempotencia: Si el estado es el mismo, no hacer nada
         if self.status == new_status:
             return
+        
+        # Validar que la transición sea válida (debe ocurrir antes de cambiar estado)
+        self._validate_state_transition(new_status)
         
         # Cambiar estado
         old_status = self.status
