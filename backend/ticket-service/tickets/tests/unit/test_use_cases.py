@@ -11,7 +11,13 @@ from tickets.domain.entities import Ticket
 from tickets.domain.repositories import TicketRepository
 from tickets.domain.event_publisher import EventPublisher
 from tickets.domain.events import TicketCreated, TicketStatusChanged, TicketPriorityChanged
-from tickets.domain.exceptions import TicketAlreadyClosed, InvalidTicketData, InvalidPriorityTransition
+from tickets.domain.exceptions import (
+    DomainException,
+    InvalidPriorityTransition,
+    InvalidTicketData,
+    InvalidTicketStateTransition,
+    TicketAlreadyClosed,
+)
 from tickets.domain.factories import TicketFactory
 
 from tickets.application.use_cases import (
@@ -392,8 +398,6 @@ class TestChangeTicketPriorityUseCase:
           And se retorna un error de permiso insuficiente
         """
         # Arrange
-        from tickets.domain.exceptions import DomainException
-
         existing_ticket, use_case, command, mock_repo, mock_publisher = (
             self._create_ticket_and_use_case(
                 ticket_id=2, new_priority="High", user_role="Usuario"
@@ -406,6 +410,11 @@ class TestChangeTicketPriorityUseCase:
 
         assert "permiso insuficiente" in str(exc_info.value).lower()
         assert existing_ticket.priority == "Unassigned"
+
+        # Assert — rejected before lookup (permission check is first)
+        mock_repo.find_by_id.assert_not_called()
+
+        # No debe persistir ni publicar eventos
         mock_repo.save.assert_not_called()
         mock_publisher.publish.assert_not_called()
 
@@ -616,8 +625,6 @@ class TestChangeTicketStatusValidation:
           And no se publica ningún evento de dominio
         """
         # Arrange
-        from tickets.domain.exceptions import InvalidTicketStateTransition
-        
         mock_repo = Mock(spec=TicketRepository)
         mock_publisher = Mock(spec=EventPublisher)
         
