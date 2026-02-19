@@ -38,7 +38,7 @@ class TestCreateTicketUseCase:
         mock_repo.save.side_effect = assign_id
         
         use_case = CreateTicketUseCase(mock_repo, mock_publisher)
-        command = CreateTicketCommand("Test Title", "Test Description")
+        command = CreateTicketCommand("Test Title", "Test Description", "user-1")
         
         # Act
         ticket = use_case.execute(command)
@@ -60,6 +60,7 @@ class TestCreateTicketUseCase:
         assert isinstance(published_event, TicketCreated)
         assert published_event.ticket_id == 123
         assert published_event.title == "Test Title"
+        assert published_event.user_id == "user-1"
     
     def test_create_ticket_with_invalid_data_raises_exception(self):
         """Crear ticket con datos inválidos lanza excepción."""
@@ -67,7 +68,7 @@ class TestCreateTicketUseCase:
         mock_publisher = Mock(spec=EventPublisher)
         
         use_case = CreateTicketUseCase(mock_repo, mock_publisher)
-        command = CreateTicketCommand("", "Description")  # Título vacío
+        command = CreateTicketCommand("", "Description", "user-1")  # Título vacío
         
         with pytest.raises(InvalidTicketData):
             use_case.execute(command)
@@ -82,7 +83,7 @@ class TestCreateTicketUseCase:
         mock_publisher = Mock(spec=EventPublisher)
         
         use_case = CreateTicketUseCase(mock_repo, mock_publisher)
-        command = CreateTicketCommand("Title", "")
+        command = CreateTicketCommand("Title", "", "user-1")
         
         with pytest.raises(InvalidTicketData):
             use_case.execute(command)
@@ -102,17 +103,18 @@ class TestCreateTicketUseCase:
         
         # Inyectar factory mock
         mock_factory = Mock(spec=TicketFactory)
-        mock_factory.create.return_value = Ticket.create("Valid", "Valid")
+        mock_factory.create.return_value = Ticket.create("Valid", "Valid", "user-1")
         
         use_case = CreateTicketUseCase(mock_repo, mock_publisher, mock_factory)
-        command = CreateTicketCommand("Title", "Description")
+        command = CreateTicketCommand("Title", "Description", "user-1")
         
         use_case.execute(command)
         
         # Verificar que se usó el factory
         mock_factory.create.assert_called_once_with(
             title="Title",
-            description="Description"
+            description="Description",
+            user_id="user-1"
         )
     
     def test_create_ticket_event_contains_correct_data(self):
@@ -126,7 +128,7 @@ class TestCreateTicketUseCase:
         mock_repo.save.side_effect = assign_id
         
         use_case = CreateTicketUseCase(mock_repo, mock_publisher)
-        command = CreateTicketCommand("Event Test", "Testing events")
+        command = CreateTicketCommand("Event Test", "Testing events", "user-1")
         
         ticket = use_case.execute(command)
         
@@ -138,6 +140,7 @@ class TestCreateTicketUseCase:
         assert event.title == "Event Test"
         assert event.description == "Testing events"
         assert event.status == Ticket.OPEN
+        assert event.user_id == "user-1"
         assert isinstance(event.occurred_at, datetime)
 
 
@@ -156,6 +159,7 @@ class TestChangeTicketStatusUseCase:
             title="Test",
             description="Desc",
             status=Ticket.OPEN,
+            user_id="user-1",
             created_at=datetime.now()
         )
         mock_repo.find_by_id.return_value = existing_ticket
@@ -207,6 +211,7 @@ class TestChangeTicketStatusUseCase:
             title="Closed",
             description="Desc",
             status=Ticket.CLOSED,
+            user_id="user-1",
             created_at=datetime.now()
         )
         mock_repo.find_by_id.return_value = closed_ticket
@@ -230,6 +235,7 @@ class TestChangeTicketStatusUseCase:
             title="Test",
             description="Desc",
             status=Ticket.OPEN,
+            user_id="user-1",
             created_at=datetime.now()
         )
         mock_repo.find_by_id.return_value = ticket
@@ -250,6 +256,7 @@ class TestChangeTicketStatusUseCase:
             title="Test",
             description="Desc",
             status=Ticket.OPEN,
+            user_id="user-1",
             created_at=datetime.now()
         )
         mock_repo.find_by_id.return_value = ticket
@@ -275,6 +282,7 @@ class TestChangeTicketStatusUseCase:
             title="Test",
             description="Desc",
             status=Ticket.OPEN,
+            user_id="user-1",
             created_at=datetime.now()
         )
         mock_repo.find_by_id.return_value = ticket
@@ -360,6 +368,55 @@ class TestChangeTicketPriorityUseCase:
         assert event.ticket_id == 1
         assert event.old_priority == "Unassigned"
         assert event.new_priority == "High"
+
+    def test_user_without_permissions_cannot_change_priority(self):
+        """
+        EP2: Usuario sin permisos no puede cambiar prioridad.
+
+        Scenario: Usuario sin permisos no puede cambiar prioridad (EP2)
+          Given un ticket en estado "Open" con prioridad "Unassigned"
+          And el usuario autenticado tiene rol "Usuario"
+          When intenta cambiar la prioridad a "High"
+          Then el sistema bloquea la accion
+          And se retorna un error de permiso insuficiente
+        """
+        # Arrange
+        from tickets.application.use_cases import (
+            ChangeTicketPriorityUseCase,
+            ChangeTicketPriorityCommand
+        )
+        from tickets.domain.exceptions import DomainException
+
+        mock_repo = Mock(spec=TicketRepository)
+        mock_publisher = Mock(spec=EventPublisher)
+
+        existing_ticket = Ticket(
+            id=2,
+            title="Test Ticket",
+            description="Test Description",
+            status=Ticket.OPEN,
+            user_id="user123",
+            created_at=datetime.now(),
+            priority="Unassigned"
+        )
+        mock_repo.find_by_id.return_value = existing_ticket
+        mock_repo.save.return_value = existing_ticket
+
+        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
+        command = ChangeTicketPriorityCommand(
+            ticket_id=2,
+            new_priority="High"
+        )
+        command.user_role = "Usuario"
+
+        # Act & Assert
+        with pytest.raises(DomainException) as exc_info:
+            use_case.execute(command)
+
+        assert "permiso insuficiente" in str(exc_info.value).lower()
+        assert existing_ticket.priority == "Unassigned"
+        mock_repo.save.assert_not_called()
+        mock_publisher.publish.assert_not_called()
 
 
 class TestChangeTicketStatusValidation:

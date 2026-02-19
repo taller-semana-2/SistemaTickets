@@ -11,7 +11,7 @@ from ..domain.factories import TicketFactory
 from ..domain.repositories import TicketRepository
 from ..domain.event_publisher import EventPublisher
 from ..domain.events import TicketCreated, TicketStatusChanged
-from ..domain.exceptions import TicketAlreadyClosed
+from ..domain.exceptions import TicketAlreadyClosed, DomainException
 
 
 @dataclass
@@ -88,8 +88,9 @@ class CreateTicketUseCase:
         ticket = self.repository.save(ticket)
         
         # 3. Generar evento de dominio (ahora que tenemos el ID)
+        occurred_at = datetime.now()
         event = TicketCreated(
-            occurred_at=datetime.now(),
+            occurred_at=occurred_at,
             ticket_id=ticket.id,
             title=ticket.title,
             description=ticket.description,
@@ -202,6 +203,10 @@ class ChangeTicketPriorityUseCase:
         Raises:
             ValueError: Si el ticket no existe
         """
+        user_role = getattr(command, "user_role", None)
+        if user_role is not None and user_role != "Administrador":
+            raise DomainException("Permiso insuficiente para cambiar la prioridad")
+
         # 1. Obtener el ticket
         ticket = self.repository.find_by_id(command.ticket_id)
         
