@@ -360,3 +360,49 @@ class TestChangeTicketPriorityUseCase:
         assert event.ticket_id == 1
         assert event.old_priority == "Unassigned"
         assert event.new_priority == "High"
+
+
+class TestChangeTicketStatusValidation:
+    """Tests para validación de transiciones de estado inválidas."""
+    
+    def test_direct_transition_open_to_closed_is_invalid(self):
+        """
+        U17: Transición directa OPEN → CLOSED es rechazada.
+        
+        Scenario: Transición directa OPEN → CLOSED es rechazada (U17)
+          Given un ticket en estado "OPEN"
+          When se intenta cambiar el estado directamente a "CLOSED"
+          Then se lanza una excepción InvalidTicketStateTransition
+          And el estado del ticket permanece sin cambios
+          And no se publica ningún evento de dominio
+        """
+        # Arrange
+        from tickets.domain.exceptions import InvalidTicketStateTransition
+        
+        mock_repo = Mock(spec=TicketRepository)
+        mock_publisher = Mock(spec=EventPublisher)
+        
+        # Ticket en estado OPEN
+        existing_ticket = Ticket(
+            id=100,
+            title="Test Ticket",
+            description="Test Description",
+            status=Ticket.OPEN,
+            user_id="user123",
+            created_at=datetime.now()
+        )
+        mock_repo.find_by_id.return_value = existing_ticket
+        
+        use_case = ChangeTicketStatusUseCase(mock_repo, mock_publisher)
+        command = ChangeTicketStatusCommand(100, Ticket.CLOSED)
+        
+        # Act & Assert
+        with pytest.raises(InvalidTicketStateTransition):
+            use_case.execute(command)
+        
+        # Estado debe permanecer sin cambios
+        assert existing_ticket.status == Ticket.OPEN
+        
+        # No debe publicar eventos
+        mock_publisher.publish.assert_not_called()
+        mock_repo.save.assert_not_called()
