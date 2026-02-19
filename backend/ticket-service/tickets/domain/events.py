@@ -38,3 +38,4 @@ class TicketPriorityChanged(DomainEvent):
     ticket_id: int
     old_priority: str
     new_priority: str
+    justification: Optional[str] = None

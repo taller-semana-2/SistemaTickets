@@ -15,7 +15,25 @@ from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition, InvalidT
 class Ticket:
     """
     Entidad de dominio Ticket.
-    Representa un ticket con sus reglas de negocio encapsuladas.
+    
+    Representa un ticket de soporte con todas sus propiedades y reglas de negocio.
+    La entidad encapsula la lógica de dominio para cambios de estado y prioridad,
+    garantizando que solo se ejecuten transiciones válidas.
+    
+    Estados: OPEN → IN_PROGRESS → CLOSED (sólo en este orden)
+    Prioridades: Unassigned (por defecto), Low, Medium, High
+    
+    Atributos:
+        id: Identificador único del ticket (None antes de persistir)
+        title: Título descriptivo del ticket (no vacío ni espacios)
+        description: Descripción detallada del problema (no vacía ni espacios)
+        status: Estado actual (OPEN, IN_PROGRESS, CLOSED)
+        user_id: Identificador del usuario que reportó el ticket
+        created_at: Timestamp de creación del ticket
+        priority: Prioridad actual (Unassigned, Low, Medium, High). Default: Unassigned
+        priority_justification: Justificación opcional del cambio de prioridad.
+                               Se almacena cuando se asigna una justificación.
+                               Disponible en null si no se proporcionó justificación.
     """
     
     # Estados válidos del ticket
@@ -45,6 +63,7 @@ class Ticket:
     user_id: str
     created_at: datetime
     priority: str = "Unassigned"  # Prioridad por defecto: Unassigned
+    priority_justification: Optional[str] = None  # Justificación del cambio de prioridad
     
     # Lista de eventos de dominio generados por cambios en la entidad
     _domain_events: List[DomainEvent] = field(default_factory=list, init=False, repr=False)
@@ -177,9 +196,16 @@ class Ticket:
                 "no se puede volver a Unassigned una vez asignada otra prioridad"
             )
     
-    def change_priority(self, new_priority: str) -> None:
+    def change_priority(self, new_priority: str, justification: Optional[str] = None) -> None:
         """
         Cambia la prioridad del ticket aplicando reglas de negocio.
+        
+        Procesa el cambio de prioridad del ticket en múltiples pasos:
+        1. Valida que la nueva prioridad sea un valor permitido
+        2. Aplican idempotencia: si la prioridad es igual, no hace cambios
+        3. Valida que la transición sea permitida según reglas de negocio
+        4. Actualiza la prioridad y la justificación (si se proporciona)
+        5. Genera un evento de dominio TicketPriorityChanged para ser publicado
         
         Reglas de negocio (MVP):
         1. Un ticket en estado CLOSED no permite cambios de prioridad
@@ -189,7 +215,10 @@ class Ticket:
         5. Cada cambio válido genera un evento de dominio TicketPriorityChanged
         
         Args:
-            new_priority: Nueva prioridad del ticket
+            new_priority: Nueva prioridad del ticket (Unassigned, Low, Medium, High).
+            justification: Justificación opcional del cambio de prioridad. Se almacena
+                          tal como se proporciona y es visible en el detalle del ticket.
+                          Puede ser None si el cambio no requiere justificación.
             
         Raises:
             TicketAlreadyClosed: Si el ticket está cerrado
@@ -212,13 +241,15 @@ class Ticket:
         # Cambiar prioridad
         old_priority = self.priority
         self.priority = new_priority
+        self.priority_justification = justification
         
         # Generar evento de dominio
         event = TicketPriorityChanged(
             occurred_at=datetime.now(),
             ticket_id=self.id,
             old_priority=old_priority,
-            new_priority=new_priority
+            new_priority=new_priority,
+            justification=justification
         )
         self._domain_events.append(event)
     
