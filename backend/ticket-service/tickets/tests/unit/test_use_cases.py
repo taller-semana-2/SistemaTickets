@@ -10,7 +10,7 @@ from datetime import datetime
 from tickets.domain.entities import Ticket
 from tickets.domain.repositories import TicketRepository
 from tickets.domain.event_publisher import EventPublisher
-from tickets.domain.events import TicketCreated, TicketStatusChanged
+from tickets.domain.events import TicketCreated, TicketStatusChanged, TicketPriorityChanged
 from tickets.domain.exceptions import TicketAlreadyClosed, InvalidTicketData
 from tickets.domain.factories import TicketFactory
 
@@ -18,7 +18,9 @@ from tickets.application.use_cases import (
     CreateTicketUseCase,
     CreateTicketCommand,
     ChangeTicketStatusUseCase,
-    ChangeTicketStatusCommand
+    ChangeTicketStatusCommand,
+    ChangeTicketPriorityUseCase,
+    ChangeTicketPriorityCommand
 )
 
 
@@ -312,7 +314,40 @@ class TestChangeTicketStatusUseCase:
 
 class TestChangeTicketPriorityUseCase:
     """Tests del caso de uso ChangeTicketPriority."""
-    
+
+    def _create_ticket_and_use_case(
+        self,
+        ticket_id: int = 1,
+        status: str = Ticket.OPEN,
+        priority: str = "Unassigned",
+        new_priority: str = "High",
+        user_role: str = "Administrador",
+    ):
+        """Helper: crea mocks, ticket, use case y command para tests de prioridad."""
+        mock_repo = Mock(spec=TicketRepository)
+        mock_publisher = Mock(spec=EventPublisher)
+
+        existing_ticket = Ticket(
+            id=ticket_id,
+            title="Test Ticket",
+            description="Test Description",
+            status=status,
+            user_id="user123",
+            created_at=datetime.now(),
+            priority=priority,
+        )
+        mock_repo.find_by_id.return_value = existing_ticket
+        mock_repo.save.return_value = existing_ticket
+
+        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
+        command = ChangeTicketPriorityCommand(
+            ticket_id=ticket_id,
+            new_priority=new_priority,
+        )
+        command.user_role = user_role
+
+        return existing_ticket, use_case, command, mock_repo, mock_publisher
+
     def test_admin_changes_priority_successfully(self):
         """
         EP1: Administrador cambia prioridad exitosamente.
@@ -325,32 +360,8 @@ class TestChangeTicketPriorityUseCase:
           And se genera un evento de dominio "TicketPriorityChanged"
         """
         # Arrange
-        from tickets.application.use_cases import (
-            ChangeTicketPriorityUseCase,
-            ChangeTicketPriorityCommand
-        )
-        from tickets.domain.events import TicketPriorityChanged
-        
-        mock_repo = Mock(spec=TicketRepository)
-        mock_publisher = Mock(spec=EventPublisher)
-        
-        # Ticket existente en estado OPEN con prioridad Unassigned
-        existing_ticket = Ticket(
-            id=1,
-            title="Test Ticket",
-            description="Test Description",
-            status=Ticket.OPEN,
-            user_id="user123",
-            created_at=datetime.now(),
-            priority="Unassigned"
-        )
-        mock_repo.find_by_id.return_value = existing_ticket
-        mock_repo.save.return_value = existing_ticket
-        
-        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
-        command = ChangeTicketPriorityCommand(
-            ticket_id=1,
-            new_priority="High"
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(ticket_id=1, new_priority="High")
         )
         
         # Act
@@ -381,33 +392,13 @@ class TestChangeTicketPriorityUseCase:
           And se retorna un error de permiso insuficiente
         """
         # Arrange
-        from tickets.application.use_cases import (
-            ChangeTicketPriorityUseCase,
-            ChangeTicketPriorityCommand
-        )
         from tickets.domain.exceptions import DomainException
 
-        mock_repo = Mock(spec=TicketRepository)
-        mock_publisher = Mock(spec=EventPublisher)
-
-        existing_ticket = Ticket(
-            id=2,
-            title="Test Ticket",
-            description="Test Description",
-            status=Ticket.OPEN,
-            user_id="user123",
-            created_at=datetime.now(),
-            priority="Unassigned"
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=2, new_priority="High", user_role="Usuario"
+            )
         )
-        mock_repo.find_by_id.return_value = existing_ticket
-        mock_repo.save.return_value = existing_ticket
-
-        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
-        command = ChangeTicketPriorityCommand(
-            ticket_id=2,
-            new_priority="High"
-        )
-        command.user_role = "Usuario"
 
         # Act & Assert
         with pytest.raises(DomainException) as exc_info:
@@ -430,34 +421,14 @@ class TestChangeTicketPriorityUseCase:
           And se genera un evento de dominio "TicketPriorityChanged"
         """
         # Arrange
-        from tickets.application.use_cases import (
-            ChangeTicketPriorityUseCase,
-            ChangeTicketPriorityCommand
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=3,
+                status=Ticket.IN_PROGRESS,
+                priority="Low",
+                new_priority="High",
+            )
         )
-        from tickets.domain.events import TicketPriorityChanged
-        
-        mock_repo = Mock(spec=TicketRepository)
-        mock_publisher = Mock(spec=EventPublisher)
-        
-        # Ticket existente en estado IN_PROGRESS con prioridad Low
-        existing_ticket = Ticket(
-            id=3,
-            title="Test Ticket In Progress",
-            description="Test Description",
-            status=Ticket.IN_PROGRESS,
-            user_id="user123",
-            created_at=datetime.now(),
-            priority="Low"
-        )
-        mock_repo.find_by_id.return_value = existing_ticket
-        mock_repo.save.return_value = existing_ticket
-        
-        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
-        command = ChangeTicketPriorityCommand(
-            ticket_id=3,
-            new_priority="High"
-        )
-        command.user_role = "Administrador"
         
         # Act
         updated_ticket = use_case.execute(command)
@@ -489,33 +460,14 @@ class TestChangeTicketPriorityUseCase:
           And no se publica ningún evento de dominio
         """
         # Arrange
-        from tickets.application.use_cases import (
-            ChangeTicketPriorityUseCase,
-            ChangeTicketPriorityCommand
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=4,
+                status=Ticket.CLOSED,
+                priority="Low",
+                new_priority="High",
+            )
         )
-
-        mock_repo = Mock(spec=TicketRepository)
-        mock_publisher = Mock(spec=EventPublisher)
-
-        # Ticket existente en estado CLOSED con prioridad Low
-        existing_ticket = Ticket(
-            id=4,
-            title="Closed Ticket",
-            description="Test Description",
-            status=Ticket.CLOSED,
-            user_id="user123",
-            created_at=datetime.now(),
-            priority="Low"
-        )
-        mock_repo.find_by_id.return_value = existing_ticket
-        mock_repo.save.return_value = existing_ticket
-
-        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
-        command = ChangeTicketPriorityCommand(
-            ticket_id=4,
-            new_priority="High"
-        )
-        command.user_role = "Administrador"
 
         # Act & Assert
         with pytest.raises(TicketAlreadyClosed):
@@ -541,33 +493,9 @@ class TestChangeTicketPriorityUseCase:
           And se genera un evento TicketPriorityChanged con old_priority="Unassigned" y new_priority="<prioridad>"
         """
         # Arrange
-        from tickets.application.use_cases import (
-            ChangeTicketPriorityUseCase,
-            ChangeTicketPriorityCommand
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(ticket_id=6, new_priority=priority)
         )
-        from tickets.domain.events import TicketPriorityChanged
-
-        mock_repo = Mock(spec=TicketRepository)
-        mock_publisher = Mock(spec=EventPublisher)
-
-        existing_ticket = Ticket(
-            id=6,
-            title="Test Ticket EP6",
-            description="Test Description",
-            status=Ticket.OPEN,
-            user_id="user123",
-            created_at=datetime.now(),
-            priority="Unassigned"
-        )
-        mock_repo.find_by_id.return_value = existing_ticket
-        mock_repo.save.return_value = existing_ticket
-
-        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
-        command = ChangeTicketPriorityCommand(
-            ticket_id=6,
-            new_priority=priority
-        )
-        command.user_role = "Administrador"
 
         # Act
         updated_ticket = use_case.execute(command)
