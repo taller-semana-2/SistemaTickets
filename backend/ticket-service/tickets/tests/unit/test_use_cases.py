@@ -11,7 +11,7 @@ from tickets.domain.entities import Ticket
 from tickets.domain.repositories import TicketRepository
 from tickets.domain.event_publisher import EventPublisher
 from tickets.domain.events import TicketCreated, TicketStatusChanged, TicketPriorityChanged
-from tickets.domain.exceptions import TicketAlreadyClosed, InvalidTicketData
+from tickets.domain.exceptions import TicketAlreadyClosed, InvalidTicketData, InvalidPriorityTransition
 from tickets.domain.factories import TicketFactory
 
 from tickets.application.use_cases import (
@@ -516,6 +516,42 @@ class TestChangeTicketPriorityUseCase:
         assert event.ticket_id == 6
         assert event.old_priority == "Unassigned"
         assert event.new_priority == priority
+
+    def test_cannot_revert_to_unassigned(self):
+        """
+        EP7: No se puede volver a Unassigned una vez asignada prioridad.
+
+        Scenario: No se puede volver a Unassigned una vez asignada prioridad (EP7)
+          Given un ticket en estado "Open" con prioridad "Medium"
+          And el usuario autenticado tiene rol "Administrador"
+          When intenta cambiar la prioridad a "Unassigned"
+          Then el sistema bloquea la acción
+          And se informa que no es posible volver a "Unassigned"
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=7,
+                status=Ticket.OPEN,
+                priority="Medium",
+                new_priority="Unassigned",
+                user_role="Administrador",
+            )
+        )
+
+        # Act & Assert
+        with pytest.raises(InvalidPriorityTransition) as exc_info:
+            use_case.execute(command)
+
+        # El mensaje debe mencionar "Unassigned"
+        assert "Unassigned" in str(exc_info.value)
+
+        # La prioridad debe permanecer sin cambios
+        assert existing_ticket.priority == "Medium"
+
+        # No debe persistir ni publicar eventos
+        mock_repo.save.assert_not_called()
+        mock_publisher.publish.assert_not_called()
 
 
 class TestChangeTicketStatusValidation:
