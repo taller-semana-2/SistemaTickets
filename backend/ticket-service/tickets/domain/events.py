@@ -30,3 +30,11 @@ class TicketStatusChanged(DomainEvent):
     ticket_id: int
     old_status: str
     new_status: str
+
+
+@dataclass(frozen=True)
+class TicketPriorityChanged(DomainEvent):
+    """Evento: La prioridad de un ticket ha cambiado."""
+    ticket_id: int
+    old_priority: str
+    new_priority: str
