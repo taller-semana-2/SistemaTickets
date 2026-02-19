@@ -559,6 +559,47 @@ class TestChangeTicketPriorityUseCase:
         mock_repo.save.assert_not_called()
         mock_publisher.publish.assert_not_called()
 
+    def test_unassigned_to_unassigned_is_noop(self):
+        """
+        EP8: Asignar Unassigned a ticket que ya tiene Unassigned no genera cambio ni evento.
+
+        Scenario: Asignar Unassigned a ticket que ya tiene Unassigned es no-op (EP8)
+          Given un ticket en estado "Open" con prioridad "Unassigned"
+          And el usuario autenticado tiene rol "Administrador"
+          When intenta cambiar la prioridad a "Unassigned"
+          Then no se realiza ningún cambio
+          And no se publica ningún evento de dominio
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=8,
+                status=Ticket.OPEN,
+                priority="Unassigned",
+                new_priority="Unassigned",
+                user_role="Administrador",
+            )
+        )
+
+        # Act — should NOT raise
+        updated_ticket = use_case.execute(command)
+
+        # Assert — priority remains "Unassigned"
+        assert updated_ticket.priority == "Unassigned"
+        assert existing_ticket.priority == "Unassigned"
+
+        # Assert — repository looked up by correct ID
+        mock_repo.find_by_id.assert_called_once_with(8)
+
+        # Assert — save WAS called (use case calls save regardless)
+        mock_repo.save.assert_called_once()
+
+        # Assert — no event published (no actual change occurred)
+        mock_publisher.publish.assert_not_called()
+
+        # Assert — no domain events collected
+        assert existing_ticket.collect_domain_events() == []
+
 
 class TestChangeTicketStatusValidation:
     """Tests para validación de transiciones de estado inválidas."""
