@@ -361,6 +361,55 @@ class TestChangeTicketPriorityUseCase:
         assert event.old_priority == "Unassigned"
         assert event.new_priority == "High"
 
+    def test_user_without_permissions_cannot_change_priority(self):
+        """
+        EP2: Usuario sin permisos no puede cambiar prioridad.
+
+        Scenario: Usuario sin permisos no puede cambiar prioridad (EP2)
+          Given un ticket en estado "Open" con prioridad "Unassigned"
+          And el usuario autenticado tiene rol "Usuario"
+          When intenta cambiar la prioridad a "High"
+          Then el sistema bloquea la accion
+          And se retorna un error de permiso insuficiente
+        """
+        # Arrange
+        from tickets.application.use_cases import (
+            ChangeTicketPriorityUseCase,
+            ChangeTicketPriorityCommand
+        )
+        from tickets.domain.exceptions import DomainException
+
+        mock_repo = Mock(spec=TicketRepository)
+        mock_publisher = Mock(spec=EventPublisher)
+
+        existing_ticket = Ticket(
+            id=2,
+            title="Test Ticket",
+            description="Test Description",
+            status=Ticket.OPEN,
+            user_id="user123",
+            created_at=datetime.now(),
+            priority="Unassigned"
+        )
+        mock_repo.find_by_id.return_value = existing_ticket
+        mock_repo.save.return_value = existing_ticket
+
+        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
+        command = ChangeTicketPriorityCommand(
+            ticket_id=2,
+            new_priority="High"
+        )
+        command.user_role = "Usuario"
+
+        # Act & Assert
+        with pytest.raises(DomainException) as exc_info:
+            use_case.execute(command)
+
+        assert "permiso insuficiente" in str(exc_info.value).lower()
+        assert existing_ticket.priority == "Unassigned"
+        mock_repo.save.assert_not_called()
+        mock_publisher.publish.assert_not_called()
+
 
 class TestChangeTicketStatusValidation:
     """Tests para validación de transiciones de estado inválidas."""
