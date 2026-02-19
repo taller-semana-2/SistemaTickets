@@ -73,6 +73,16 @@ class Ticket:
         if self.status not in [self.OPEN, self.IN_PROGRESS, self.CLOSED]:
             raise ValueError(f"Estado inválido: {self.status}")
     
+    def _ensure_not_closed(self) -> None:
+        """
+        Verifica que el ticket no esté cerrado.
+
+        Raises:
+            TicketAlreadyClosed: Si el ticket está en estado CLOSED
+        """
+        if self.status == self.CLOSED:
+            raise TicketAlreadyClosed(self.id)
+
     def _validate_state_transition(self, new_status: str) -> None:
         """
         Valida que la transición de estado sea válida.
@@ -128,8 +138,7 @@ class Ticket:
             raise ValueError(f"Estado inválido: {new_status}")
         
         # Regla: No se puede cambiar el estado de un ticket cerrado
-        if self.status == self.CLOSED:
-            raise TicketAlreadyClosed(self.id)
+        self._ensure_not_closed()
         
         # Idempotencia: Si el estado es el mismo, no hacer nada
         if self.status == new_status:
@@ -199,22 +208,11 @@ class Ticket:
         5. Genera un evento de dominio TicketPriorityChanged para ser publicado
         
         Reglas de negocio (MVP):
-        - Solo valores válidos: Unassigned, Low, Medium, High
-        - No se puede volver a Unassigned una vez asignada otra prioridad
-        - El cambio es idempotente (si ya tiene esa prioridad, no ejecuta cambios)
-        - Cada cambio válido genera un evento de dominio TicketPriorityChanged
-        
-        Ejemplos de uso:
-        ```
-        # Cambiar de sin prioridad a Alta (válido)
-        ticket.change_priority("High", "Cliente VIP reportó problema crítico")
-        
-        # Cambiar sin justificación (válido)
-        ticket.change_priority("Medium")
-        
-        # Idempotencia: no genera eventos
-        ticket.change_priority("High")  # Si ya era High, no hace nada
-        ```
+        1. Un ticket en estado CLOSED no permite cambios de prioridad
+        2. Solo valores válidos: Unassigned, Low, Medium, High
+        3. No se puede volver a Unassigned una vez asignada otra prioridad
+        4. El cambio es idempotente (si ya tiene esa prioridad, no hace nada)
+        5. Cada cambio válido genera un evento de dominio TicketPriorityChanged
         
         Args:
             new_priority: Nueva prioridad del ticket (Unassigned, Low, Medium, High).
@@ -223,9 +221,13 @@ class Ticket:
                           Puede ser None si el cambio no requiere justificación.
             
         Raises:
-            InvalidPriorityTransition: Si la transición no es válida según reglas de negocio
+            TicketAlreadyClosed: Si el ticket está cerrado
+            InvalidPriorityTransition: Si la transición no es válida
             ValueError: Si la prioridad no es un valor válido
         """
+        # Regla: No se puede cambiar la prioridad de un ticket cerrado
+        self._ensure_not_closed()
+        
         # Validar que la nueva prioridad sea válida
         self._validate_priority_value(new_priority)
         
