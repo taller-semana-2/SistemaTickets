@@ -99,3 +99,11 @@ logs/
 *.tmp
 *.temp
 .cache/
+
+
+
+*.github/agents/
+*.github/agents/!iris.agent.md
+*.github/skills
+
+TEST_PLAN2.md
