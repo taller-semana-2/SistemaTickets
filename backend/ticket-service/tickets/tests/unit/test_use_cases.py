@@ -418,6 +418,63 @@ class TestChangeTicketPriorityUseCase:
         mock_repo.save.assert_not_called()
         mock_publisher.publish.assert_not_called()
 
+    def test_admin_changes_priority_in_progress_ticket(self):
+        """
+        EP4: Cambio de prioridad permitido en ticket In-Progress.
+        
+        Scenario: Administrador cambia prioridad de ticket In-Progress (EP4)
+          Given un ticket en estado "In-Progress" con prioridad "Low"
+          And el usuario autenticado tiene rol "Administrador"
+          When intenta cambiar la prioridad a "High"
+          Then la prioridad del ticket se actualiza a "High"
+          And se genera un evento de dominio "TicketPriorityChanged"
+        """
+        # Arrange
+        from tickets.application.use_cases import (
+            ChangeTicketPriorityUseCase,
+            ChangeTicketPriorityCommand
+        )
+        from tickets.domain.events import TicketPriorityChanged
+        
+        mock_repo = Mock(spec=TicketRepository)
+        mock_publisher = Mock(spec=EventPublisher)
+        
+        # Ticket existente en estado IN_PROGRESS con prioridad Low
+        existing_ticket = Ticket(
+            id=3,
+            title="Test Ticket In Progress",
+            description="Test Description",
+            status=Ticket.IN_PROGRESS,
+            user_id="user123",
+            created_at=datetime.now(),
+            priority="Low"
+        )
+        mock_repo.find_by_id.return_value = existing_ticket
+        mock_repo.save.return_value = existing_ticket
+        
+        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
+        command = ChangeTicketPriorityCommand(
+            ticket_id=3,
+            new_priority="High"
+        )
+        command.user_role = "Administrador"
+        
+        # Act
+        updated_ticket = use_case.execute(command)
+        
+        # Assert
+        assert updated_ticket.priority == "High"
+        mock_repo.find_by_id.assert_called_once_with(3)
+        mock_repo.save.assert_called_once()
+        
+        # Verificar evento publicado
+        mock_publisher.publish.assert_called_once()
+        event = mock_publisher.publish.call_args[0][0]
+        assert isinstance(event, TicketPriorityChanged)
+        assert event.ticket_id == 3
+        assert event.old_priority == "Low"
+        assert event.new_priority == "High"
+
 
 class TestChangeTicketStatusValidation:
     """Tests para validación de transiciones de estado inválidas."""
