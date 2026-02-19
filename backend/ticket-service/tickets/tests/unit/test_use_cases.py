@@ -3,7 +3,7 @@ Tests unitarios de casos de uso (Application Layer).
 Usan mocks para repositories y event publishers (aislados de infraestructura).
 """
 
-
+import pytest
 from unittest.mock import Mock, call
 from datetime import datetime
 
@@ -300,3 +300,63 @@ class TestChangeTicketStatusUseCase:
         
         assert event1.new_status == Ticket.IN_PROGRESS
         assert event2.new_status == Ticket.CLOSED
+
+
+class TestChangeTicketPriorityUseCase:
+    """Tests del caso de uso ChangeTicketPriority."""
+    
+    def test_admin_changes_priority_successfully(self):
+        """
+        EP1: Administrador cambia prioridad exitosamente.
+        
+        Scenario: Administrador cambia prioridad de ticket Open
+          Given un ticket en estado "Open" con prioridad "Unassigned"
+          And el usuario autenticado tiene rol "Administrador"
+          When intenta cambiar la prioridad a "High"
+          Then la prioridad del ticket se actualiza a "High"
+          And se genera un evento de dominio "TicketPriorityChanged"
+        """
+        # Arrange
+        from tickets.application.use_cases import (
+            ChangeTicketPriorityUseCase,
+            ChangeTicketPriorityCommand
+        )
+        from tickets.domain.events import TicketPriorityChanged
+        
+        mock_repo = Mock(spec=TicketRepository)
+        mock_publisher = Mock(spec=EventPublisher)
+        
+        # Ticket existente en estado OPEN con prioridad Unassigned
+        existing_ticket = Ticket(
+            id=1,
+            title="Test Ticket",
+            description="Test Description",
+            status=Ticket.OPEN,
+            user_id="user123",
+            created_at=datetime.now(),
+            priority="Unassigned"
+        )
+        mock_repo.find_by_id.return_value = existing_ticket
+        mock_repo.save.return_value = existing_ticket
+        
+        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
+        command = ChangeTicketPriorityCommand(
+            ticket_id=1,
+            new_priority="High"
+        )
+        
+        # Act
+        updated_ticket = use_case.execute(command)
+        
+        # Assert
+        assert updated_ticket.priority == "High"
+        mock_repo.find_by_id.assert_called_once_with(1)
+        mock_repo.save.assert_called_once()
+        
+        # Verificar evento publicado
+        mock_publisher.publish.assert_called_once()
+        event = mock_publisher.publish.call_args[0][0]
+        assert isinstance(event, TicketPriorityChanged)
+        assert event.ticket_id == 1
+        assert event.old_priority == "Unassigned"
+        assert event.new_priority == "High"
