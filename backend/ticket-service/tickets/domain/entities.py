@@ -45,6 +45,7 @@ class Ticket:
     user_id: str
     created_at: datetime
     priority: str = "Unassigned"  # Prioridad por defecto: Unassigned
+    priority_justification: Optional[str] = None  # Justificación del cambio de prioridad
     
     # Lista de eventos de dominio generados por cambios en la entidad
     _domain_events: List[DomainEvent] = field(default_factory=list, init=False, repr=False)
@@ -168,7 +169,7 @@ class Ticket:
                 "no se puede volver a Unassigned una vez asignada otra prioridad"
             )
     
-    def change_priority(self, new_priority: str) -> None:
+    def change_priority(self, new_priority: str, justification: Optional[str] = None) -> None:
         """
         Cambia la prioridad del ticket aplicando reglas de negocio.
         
@@ -180,6 +181,7 @@ class Ticket:
         
         Args:
             new_priority: Nueva prioridad del ticket
+            justification: Justificación opcional del cambio de prioridad
             
         Raises:
             InvalidPriorityTransition: Si la transición no es válida
@@ -198,13 +200,15 @@ class Ticket:
         # Cambiar prioridad
         old_priority = self.priority
         self.priority = new_priority
+        self.priority_justification = justification
         
         # Generar evento de dominio
         event = TicketPriorityChanged(
             occurred_at=datetime.now(),
             ticket_id=self.id,
             old_priority=old_priority,
-            new_priority=new_priority
+            new_priority=new_priority,
+            justification=justification
         )
         self._domain_events.append(event)
     
