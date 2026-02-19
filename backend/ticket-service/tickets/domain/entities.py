@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from .events import DomainEvent, TicketCreated, TicketStatusChanged, TicketPriorityChanged
-from .exceptions import TicketAlreadyClosed
+from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition
 
 
 @dataclass
@@ -23,6 +23,12 @@ class Ticket:
     IN_PROGRESS = "IN_PROGRESS"
     CLOSED = "CLOSED"
     
+    # Prioridades válidas del ticket
+    PRIORITY_UNASSIGNED = "Unassigned"
+    PRIORITY_LOW = "Low"
+    PRIORITY_MEDIUM = "Medium"
+    PRIORITY_HIGH = "High"
+    
     # Atributos de la entidad
     id: Optional[int]
     title: str
@@ -30,7 +36,7 @@ class Ticket:
     status: str
     user_id: str
     created_at: datetime
-    priority: str = "Unassigned"  # Prioridad por defecto
+    priority: str = "Unassigned"  # Prioridad por defecto: Unassigned
     
     # Lista de eventos de dominio generados por cambios en la entidad
     _domain_events: List[DomainEvent] = field(default_factory=list, init=False, repr=False)
@@ -85,16 +91,44 @@ class Ticket:
         """
         Cambia la prioridad del ticket aplicando reglas de negocio.
         
-        Reglas:
-        - El cambio es idempotente (si ya tiene esa prioridad, no hace nada)
-        - Cada cambio válido genera un evento de dominio
+        Reglas de negocio (MVP):
+        1. Solo valores válidos: Unassigned, Low, Medium, High
+        2. No se puede volver a Unassigned una vez asignada otra prioridad
+        3. El cambio es idempotente (si ya tiene esa prioridad, no hace nada)
+        4. Cada cambio válido genera un evento de dominio TicketPriorityChanged
         
         Args:
             new_priority: Nueva prioridad del ticket
+            
+        Raises:
+            InvalidPriorityTransition: Si la transición no es válida
+            ValueError: Si la prioridad no es un valor válido
         """
+        # Validar que la nueva prioridad sea válida
+        valid_priorities = [
+            self.PRIORITY_UNASSIGNED,
+            self.PRIORITY_LOW,
+            self.PRIORITY_MEDIUM,
+            self.PRIORITY_HIGH
+        ]
+        if new_priority not in valid_priorities:
+            raise ValueError(
+                f"Prioridad inválida: {new_priority}. "
+                f"Valores válidos: {', '.join(valid_priorities)}"
+            )
+        
         # Idempotencia: Si la prioridad es la misma, no hacer nada
         if self.priority == new_priority:
             return
+        
+        # Regla de negocio: No se puede volver a Unassigned una vez asignada prioridad
+        if (self.priority != self.PRIORITY_UNASSIGNED and 
+            new_priority == self.PRIORITY_UNASSIGNED):
+            raise InvalidPriorityTransition(
+                self.priority,
+                new_priority,
+                "no se puede volver a Unassigned una vez asignada otra prioridad"
+            )
         
         # Cambiar prioridad
         old_priority = self.priority
