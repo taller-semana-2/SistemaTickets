@@ -208,6 +208,20 @@ class Ticket:
         )
         self._domain_events.append(event)
     
+    def add_response(self, text: str, admin_id: str) -> None:
+        """
+        Agrega una respuesta de admin al ticket.
+
+        Args:
+            text: Texto de la respuesta
+            admin_id: ID del admin que responde
+
+        Raises:
+            TicketAlreadyClosed: Si el ticket está cerrado
+        """
+        if self.status == self.CLOSED:
+            raise TicketAlreadyClosed(self.id)
+    
     def collect_domain_events(self) -> List[DomainEvent]:
         """
         Recolecta y limpia los eventos de dominio generados.
