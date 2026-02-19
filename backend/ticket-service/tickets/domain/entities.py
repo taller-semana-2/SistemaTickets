@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from .events import DomainEvent, TicketCreated, TicketStatusChanged, TicketPriorityChanged
-from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition
+from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition, InvalidTicketStateTransition
 
 
 @dataclass
@@ -52,6 +52,7 @@ class Ticket:
         
         Reglas:
         - No se puede cambiar el estado de un ticket cerrado
+        - No se puede transicionar directamente de OPEN a CLOSED (debe pasar por IN_PROGRESS)
         - El cambio es idempotente (si ya tiene ese estado, no hace nada)
         - Cada cambio válido genera un evento de dominio
         
@@ -59,6 +60,7 @@ class Ticket:
             new_status: Nuevo estado del ticket
             
         Raises:
+            InvalidTicketStateTransition: Si la transición no es válida
             TicketAlreadyClosed: Si el ticket está cerrado
             ValueError: Si el nuevo estado no es válido
         """
@@ -69,6 +71,10 @@ class Ticket:
         # Regla: No se puede cambiar el estado de un ticket cerrado
         if self.status == self.CLOSED:
             raise TicketAlreadyClosed(self.id)
+        
+        # Regla: No se puede transicionar directamente de OPEN a CLOSED
+        if self.status == self.OPEN and new_status == self.CLOSED:
+            raise InvalidTicketStateTransition(self.status, new_status)
         
         # Idempotencia: Si el estado es el mismo, no hacer nada
         if self.status == new_status:
