@@ -22,3 +22,12 @@ class NotificationNotFound(DomainException):
     def __init__(self, notification_id: int):
         self.notification_id = notification_id
         super().__init__(f"Notificación {notification_id} no encontrada")
+
+
+class InvalidEventSchema(DomainException):
+    """El evento recibido no contiene todos los campos obligatorios."""
+
+    def __init__(self, missing_fields: list):
+        self.missing_fields = missing_fields
+        fields_str = ", ".join(missing_fields)
+        super().__init__(f"Campos obligatorios faltantes en el evento: {fields_str}")

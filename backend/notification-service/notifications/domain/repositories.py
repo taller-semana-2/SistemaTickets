@@ -64,3 +64,16 @@ class NotificationRepository(ABC):
             Modelo Django
         """
         pass
+
+    @abstractmethod
+    def find_by_response_id(self, response_id: int) -> Optional['Notification']:
+        """
+        Busca una notificación asociada a un response_id específico.
+
+        Args:
+            response_id: ID de la respuesta que generó la notificación
+
+        Returns:
+            La entidad de dominio Notification o None si no existe
+        """
+        pass
