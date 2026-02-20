@@ -27,6 +27,7 @@ vi.mock('../../services/ticketApi', () => ({
     deleteTicket: vi.fn(),
     updateStatus: vi.fn(),
     createResponse: vi.fn(),
+    updatePriority: vi.fn(),
   },
 }));
 
@@ -102,6 +103,67 @@ const renderTicketDetail = (ticketId = '42') => {
 // ---------------------------------------------------------------------------
 // Tests — RED phase (TDD)
 // ---------------------------------------------------------------------------
+
+// ===========================================================================
+// HU-1.2: Visualización de prioridad en detalle del ticket
+// ===========================================================================
+
+describe('TicketDetail — HU-1.2: Visualización de prioridad', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(authService.getCurrentUser).mockReturnValue({
+      id: 'user-123',
+      email: 'user@test.com',
+      username: 'testuser',
+      role: 'USER',
+      is_active: true,
+      created_at: '2026-01-01T00:00:00Z',
+    });
+    vi.mocked(authService.isAuthenticated).mockReturnValue(true);
+    vi.mocked(authService.isAdmin).mockReturnValue(false);
+    vi.mocked(ticketApi.getResponses).mockResolvedValue([]);
+  });
+
+  it('llama a ticketApi.getTicket con el id del parámetro de ruta', async () => {
+    vi.mocked(ticketApi.getTicket).mockResolvedValue({ ...mockTicket, priority: 'High' });
+    renderTicketDetail();
+    await waitFor(() => {
+      expect(ticketApi.getTicket).toHaveBeenCalledWith(42);
+    });
+  });
+
+  it('muestra "Alta" cuando el ticket tiene priority "High"', async () => {
+    vi.mocked(ticketApi.getTicket).mockResolvedValue({ ...mockTicket, priority: 'High' });
+    renderTicketDetail();
+    await waitFor(() => {
+      expect(screen.getByText('Alta')).toBeInTheDocument();
+    });
+  });
+
+  it('muestra "Baja" cuando el ticket tiene priority "Low"', async () => {
+    vi.mocked(ticketApi.getTicket).mockResolvedValue({ ...mockTicket, priority: 'Low' });
+    renderTicketDetail();
+    await waitFor(() => {
+      expect(screen.getByText('Baja')).toBeInTheDocument();
+    });
+  });
+
+  it('muestra "Media" cuando el ticket tiene priority "Medium"', async () => {
+    vi.mocked(ticketApi.getTicket).mockResolvedValue({ ...mockTicket, priority: 'Medium' });
+    renderTicketDetail();
+    await waitFor(() => {
+      expect(screen.getByText('Media')).toBeInTheDocument();
+    });
+  });
+
+  it('muestra "Unassigned" cuando el ticket no tiene prioridad', async () => {
+    vi.mocked(ticketApi.getTicket).mockResolvedValue({ ...mockTicket, priority: undefined });
+    renderTicketDetail();
+    await waitFor(() => {
+      expect(screen.getByText('Unassigned')).toBeInTheDocument();
+    });
+  });
+});
 
 describe('TicketDetail — HU-3.1: Sección Respuestas', () => {
   beforeEach(() => {
@@ -685,6 +747,6 @@ describe('TicketDetail — HU-3.2: Formulario de respuesta (solo ADMIN, ticket n
       });
 
       expect(textarea.value).toBe('Una respuesta cualquiera');
-    });
+
   });
 });

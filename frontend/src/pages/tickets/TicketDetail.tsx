@@ -6,6 +6,8 @@ import type { Ticket, TicketResponse } from '../../types/ticket';
 import { useTicketDetail } from './useTicketDetail';
 import { useSSE } from '../../hooks/useSSE';
 import AdminResponseForm from './AdminResponseForm';
+import { formatPriority } from './priorityUtils';
+import TicketPriorityManager from './TicketPriorityManager';
 import './TicketDetail.css';
 
 // ---------------------------------------------------------------------------
@@ -84,11 +86,11 @@ const AdminPanel = ({ ticketId, isClosed, onResponseCreated }: AdminPanelProps) 
 
 const TicketDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { ticket, responses, loading, error, appendResponse, fetchResponses } = useTicketDetail(id);
+  const { ticket, responses, loading, error, appendResponse, fetchResponses, updateTicket } =
+    useTicketDetail(id);
 
   /**
    * HU-2.2 + HU-3.1: conexión SSE scoped a este ticket.
-   * - refreshUnread()      → actualiza el badge de notificaciones del navbar.
    * - fetchResponses()     → re-carga respuestas cuando llega un evento del
    *                          ticket actualmente visible, sin recargar la página.
    * El Layout global NO monta useSSE mientras esta ruta esté activa, por lo que
@@ -113,6 +115,60 @@ const TicketDetail = () => {
   return (
     <div className="ticket-detail-container">
       <div className="ticket-detail-card">
+        <div className="ticket-detail-header">
+          <span className="ticket-detail-number">#{ticket.id}</span>
+          <h1 className="ticket-detail-title">{ticket.title}</h1>
+          <span className={`ticket-detail-status status-${ticket.status.toLowerCase()}`}>
+            {ticket.status}
+          </span>
+          <span
+            className={`priority-badge priority-${(ticket.priority ?? 'Unassigned').toLowerCase()}`}
+          >
+            {formatPriority(ticket.priority)}
+          </span>
+        </div>
+
+        <p className="ticket-detail-description">{ticket.description}</p>
+
+        <div className="ticket-detail-meta">
+          <span>Creado: {formatDate(ticket.created_at)}</span>
+        </div>
+
+        {ticket.priority_justification && (
+          <p className="ticket-detail-justification">
+            <strong>Justificación de prioridad:</strong>{' '}
+            {ticket.priority_justification}
+          </p>
+        )}
+      </div>
+
+      {isAdmin && (
+        <TicketPriorityManager
+          ticket={ticket}
+          onUpdate={(updated) => updateTicket(updated)}
+        />
+      )}
+
+      {hasAccess ? (
+        <ResponseList responses={responses} />
+      ) : (
+        <div className="access-restricted">
+          <p>Acceso restringido</p>
+        </div>
+      )}
+
+      {isAdmin && (
+        <AdminPanel
+          ticketId={ticket.id}
+          isClosed={ticket.status === 'CLOSED'}
+          onResponseCreated={appendResponse}
+        />
+      )}
+    </div>
+  );
+};
+
+export default TicketDetail;
         <div className="ticket-detail-header">
           <span className="ticket-detail-number">#{ticket.id}</span>
           <h1 className="ticket-detail-title">{ticket.title}</h1>

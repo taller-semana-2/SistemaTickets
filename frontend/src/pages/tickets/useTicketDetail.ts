@@ -9,6 +9,8 @@ interface UseTicketDetailResult {
   loading: boolean;
   error: string | null;
   appendResponse: (response: TicketResponse) => void;
+  /** Actualiza el ticket en el estado local (ej. tras cambio de prioridad). */
+  updateTicket: (ticket: Ticket) => void;
   /** Re-fetch solo las respuestas del ticket (sin recargar el ticket en sí). */
   fetchResponses: () => Promise<void>;
 }
@@ -69,5 +71,5 @@ export const useTicketDetail = (id: string | undefined): UseTicketDetailResult =
     setResponses((prev) => sortByDateAsc([...prev, response], 'created_at'));
   };
 
-  return { ticket, responses, loading, error, appendResponse, fetchResponses };
+  return { ticket, responses, loading, error, appendResponse, fetchResponses, updateTicket: setTicket };
 };
