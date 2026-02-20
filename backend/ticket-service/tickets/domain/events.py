@@ -38,3 +38,13 @@ class TicketPriorityChanged(DomainEvent):
     ticket_id: int
     old_priority: str
     new_priority: str
+
+
+@dataclass(frozen=True)
+class TicketResponseAdded(DomainEvent):
+    """Evento: Se ha agregado una respuesta de admin a un ticket."""
+    ticket_id: int
+    response_id: int
+    admin_id: str
+    response_text: str
+    user_id: str

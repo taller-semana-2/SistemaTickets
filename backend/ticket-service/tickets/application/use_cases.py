@@ -10,7 +10,7 @@ from ..domain.entities import Ticket
 from ..domain.factories import TicketFactory
 from ..domain.repositories import TicketRepository
 from ..domain.event_publisher import EventPublisher
-from ..domain.events import TicketCreated, TicketStatusChanged
+from ..domain.events import TicketCreated, TicketStatusChanged, TicketResponseAdded
 from ..domain.exceptions import TicketAlreadyClosed, DomainException
 
 
@@ -286,5 +286,16 @@ class AddTicketResponseUseCase:
 
         # 3. Persistir el cambio
         self.repository.save(ticket)
+
+        # 4. Generar y publicar evento de dominio
+        event = TicketResponseAdded(
+            occurred_at=datetime.now(),
+            ticket_id=ticket.id,
+            response_id=0,
+            admin_id=command.admin_id,
+            response_text=command.text,
+            user_id=ticket.user_id,
+        )
+        self.event_publisher.publish(event)
 
         return ticket
