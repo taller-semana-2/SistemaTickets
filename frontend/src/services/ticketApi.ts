@@ -1,4 +1,4 @@
-import type { Ticket, CreateTicketDTO, TicketPriority } from '../types/ticket';
+import type { Ticket, CreateTicketDTO, TicketPriority, TicketResponse } from '../types/ticket';
 import { ticketApiClient } from './axiosConfig';
 
 /** Payload para actualizar la prioridad de un ticket. */
@@ -17,6 +17,24 @@ export const ticketApi = {
   },
 
   /**
+   * Obtener un ticket por ID
+   */
+  getTicket: async (id: number): Promise<Ticket> => {
+    const { data } = await ticketApiClient.get<Ticket>(`/tickets/${id}/`);
+    return data;
+  },
+
+  /**
+   * Obtener respuestas de un ticket ordenadas cronológicamente (ascendente)
+   */
+  getResponses: async (ticketId: number): Promise<TicketResponse[]> => {
+    const { data } = await ticketApiClient.get<TicketResponse[]>(
+      `/tickets/${ticketId}/responses/`
+    );
+    return data;
+  },
+
+  /**
    * Crear un nuevo ticket
    */
   createTicket: async (ticketData: CreateTicketDTO): Promise<Ticket> => {
@@ -29,14 +47,6 @@ export const ticketApi = {
    */
   deleteTicket: async (id: number): Promise<void> => {
     await ticketApiClient.delete(`/tickets/${id}/`);
-  },
-
-  /**
-   * Obtener un ticket por id
-   */
-  getTicket: async (id: number): Promise<Ticket> => {
-    const { data } = await ticketApiClient.get<Ticket>(`/tickets/${id}/`);
-    return data;
   },
 
   /**
@@ -60,6 +70,24 @@ export const ticketApi = {
     const { data } = await ticketApiClient.patch<Ticket>(
       `/tickets/${id}/priority/`,
       payload
+    );
+    return data;
+  },
+
+  /**
+   * Crear una respuesta de administrador a un ticket.
+   * POST /tickets/:id/responses/
+   * Incluye admin_id desde la sesión activa para respetar el contrato del
+   * serializer del backend (`admin_id` requerido).
+   */
+  createResponse: async (ticketId: number, text: string): Promise<TicketResponse> => {
+    // El admin_id viene de la sesión activa; el backend también lo recibe
+    // vía cabecera X-User-Id pero el serializer lo espera en el cuerpo.
+    const raw = localStorage.getItem('ticketSystem_user');
+    const adminId: string = raw ? (JSON.parse(raw) as { id?: string }).id ?? '' : '';
+    const { data } = await ticketApiClient.post<TicketResponse>(
+      `/tickets/${ticketId}/responses/`,
+      { text, admin_id: adminId }
     );
     return data;
   },

@@ -5,7 +5,6 @@ Los eventos son inmutables y representan algo que ya ocurrió.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -38,4 +37,17 @@ class TicketPriorityChanged(DomainEvent):
     ticket_id: int
     old_priority: str
     new_priority: str
+<<<<<<< feature/sistema_de_notificaciones
+
+
+@dataclass(frozen=True)
+class TicketResponseAdded(DomainEvent):
+    """Evento: Se ha agregado una respuesta de admin a un ticket."""
+    ticket_id: int
+    response_id: int
+    admin_id: str
+    response_text: str
+    user_id: str
+=======
     justification: Optional[str] = None
+>>>>>>> develop
