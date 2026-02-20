@@ -374,3 +374,22 @@ class TestDjangoTicketRepositoryIntegration(TestCase):
         # Verify other entity unchanged
         assert ticket2.status == "OPEN"
         assert ticket1.status == "IN_PROGRESS"
+
+    # ==================== Priority Mapping Tests ====================
+
+    def test_save_and_retrieve_preserves_priority(self):
+        """Round-trip: guardar ticket con priority y recuperarlo preserva el valor."""
+        ticket = DomainTicket.create(title="T", description="D", user_id="user1")
+        ticket.priority = "High"
+        saved = self.repository.save(ticket)
+        retrieved = self.repository.find_by_id(saved.id)
+        assert retrieved.priority == "High"
+
+    def test_save_and_retrieve_preserves_priority_justification(self):
+        """Round-trip: guardar ticket con priority_justification y recuperarlo preserva el valor."""
+        ticket = DomainTicket.create(title="T", description="D", user_id="user1")
+        ticket.priority = "Medium"
+        ticket.priority_justification = "Urgente por SLA"
+        saved = self.repository.save(ticket)
+        retrieved = self.repository.find_by_id(saved.id)
+        assert retrieved.priority_justification == "Urgente por SLA"

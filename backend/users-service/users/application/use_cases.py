@@ -5,8 +5,9 @@ Cada caso de uso representa una operación de negocio completa.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 import hashlib
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from ..domain.entities import User, UserRole
 from ..domain.factories import UserFactory
@@ -14,6 +15,17 @@ from ..domain.repositories import UserRepository
 from ..domain.event_publisher import EventPublisher
 from ..domain.events import UserCreated, UserDeactivated
 from ..domain.exceptions import UserAlreadyExists, UserNotFound
+
+
+def _generate_tokens(user: User) -> dict[str, str]:
+    """Genera access y refresh JWT con claims personalizados."""
+    refresh = RefreshToken.for_user(user)
+    refresh['email'] = user.email
+    refresh['role'] = user.role.value if hasattr(user.role, 'value') else str(user.role)
+    return {
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+    }
 
 
 @dataclass
@@ -40,11 +52,14 @@ class ChangeUserEmailCommand:
 
 @dataclass
 class RegisterUserCommand:
-    """Comando: Registrar un nuevo usuario."""
+    """Comando: Registrar un nuevo usuario.
+    
+    SEGURIDAD: No incluye campo 'role'. El registro público
+    siempre crea usuarios con rol USER.
+    """
     email: str
     username: str
     password: str
-    role: str = "USER"
 
 
 @dataclass
@@ -329,7 +344,7 @@ class RegisterUserUseCase:
         self.event_publisher = event_publisher
         self.factory = factory or UserFactory()
     
-    def execute(self, command: RegisterUserCommand) -> User:
+    def execute(self, command: RegisterUserCommand) -> dict[str, Any]:
         """
         Ejecuta el caso de uso de registro de usuario.
         
@@ -337,7 +352,7 @@ class RegisterUserUseCase:
             command: Comando con los datos del usuario
             
         Returns:
-            El usuario creado y persistido
+            Diccionario con usuario y tokens JWT
             
         Raises:
             UserAlreadyExists: Si el email ya está registrado
@@ -349,15 +364,13 @@ class RegisterUserUseCase:
         if self.repository.exists_by_email(command.email):
             raise UserAlreadyExists(command.email)
         
-        # 2. Convertir string role a enum
-        role = UserRole(command.role)
-        
-        # 3. Crear entidad de dominio usando factory (valida)
+        # 2. Crear entidad de dominio usando factory (valida)
+        # SEGURIDAD: Siempre forzar UserRole.USER en registro público
         user = self.factory.create(
             email=command.email,
             username=command.username,
             password=command.password,
-            role=role
+            role=UserRole.USER
         )
         
         # 4. Persistir el usuario
@@ -374,7 +387,10 @@ class RegisterUserUseCase:
         # 6. Publicar evento
         self.event_publisher.publish(event, 'user.created')
         
-        return user
+        return {
+            'user': user,
+            'tokens': _generate_tokens(user),
+        }
 
 
 class LoginUseCase:
@@ -391,7 +407,7 @@ class LoginUseCase:
     def __init__(self, repository: UserRepository):
         self.repository = repository
     
-    def execute(self, command: LoginCommand) -> User:
+    def execute(self, command: LoginCommand) -> dict[str, Any]:
         """
         Ejecuta el caso de uso de login.
         
@@ -399,7 +415,7 @@ class LoginUseCase:
             command: Comando con email y password
             
         Returns:
-            El usuario autenticado
+            Diccionario con usuario autenticado y tokens JWT
             
         Raises:
             UserNotFound: Si el email no existe o credenciales inválidas
@@ -420,7 +436,10 @@ class LoginUseCase:
         if not user.is_active:
             raise UserNotFound("Usuario inactivo")
         
-        return user
+        return {
+            'user': user,
+            'tokens': _generate_tokens(user),
+        }
     
     @staticmethod
     def _hash_password(password: str) -> str:

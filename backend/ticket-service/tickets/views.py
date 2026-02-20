@@ -16,8 +16,13 @@ from .application.use_cases import (
     CreateTicketCommand,
     ChangeTicketStatusUseCase,
     ChangeTicketStatusCommand,
+<<<<<<< feature/sistema_de_notificaciones
     AddTicketResponseUseCase,
     AddTicketResponseCommand,
+=======
+    ChangeTicketPriorityUseCase,
+    ChangeTicketPriorityCommand
+>>>>>>> develop
 )
 from .infrastructure.repository import DjangoTicketRepository
 from .infrastructure.event_publisher import RabbitMQEventPublisher
@@ -25,7 +30,11 @@ from .domain.exceptions import (
     DomainException,
     TicketAlreadyClosed,
     InvalidTicketData,
+<<<<<<< feature/sistema_de_notificaciones
     EmptyResponseError,
+=======
+    InvalidPriorityTransition
+>>>>>>> develop
 )
 
 
@@ -65,7 +74,11 @@ class TicketViewSet(viewsets.ModelViewSet):
             repository=self.repository,
             event_publisher=self.event_publisher
         )
+<<<<<<< feature/sistema_de_notificaciones
         self.add_response_use_case = AddTicketResponseUseCase(
+=======
+        self.change_priority_use_case = ChangeTicketPriorityUseCase(
+>>>>>>> develop
             repository=self.repository,
             event_publisher=self.event_publisher
         )
@@ -148,6 +161,73 @@ class TicketViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
     
+    @action(detail=True, methods=["patch"], url_path="priority")
+    def change_priority(self, request, pk=None):
+        """
+        Cambia la prioridad de un ticket ejecutando el caso de uso.
+        Aplica reglas de negocio del dominio (transiciones válidas, permisos).
+
+        PATCH /api/tickets/{id}/priority/
+
+        Body params:
+            - priority (str, requerido): Nueva prioridad del ticket.
+            - justification (str, opcional): Justificación del cambio.
+            - user_role (str, opcional): Rol del usuario que solicita el cambio.
+
+        Errores:
+            - 400: Campo 'priority' ausente, ticket cerrado, transición inválida.
+            - 403: Permiso denegado (excepción de dominio).
+        """
+        new_priority = request.data.get("priority")
+        justification = request.data.get("justification")
+        user_role = request.data.get("user_role")
+
+        # Validación de entrada HTTP
+        if not new_priority:
+            return Response(
+                {"error": "El campo 'priority' es requerido"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Crear comando
+            command = ChangeTicketPriorityCommand(
+                ticket_id=int(pk),
+                new_priority=new_priority
+            )
+            command.justification = justification
+            command.user_role = user_role
+
+            # Ejecutar caso de uso
+            domain_ticket = self.change_priority_use_case.execute(command)
+
+            # Convertir entidad de dominio a modelo Django para serialización
+            django_ticket = self.repository.to_django_model(domain_ticket)
+
+            return Response(
+                TicketSerializer(django_ticket).data,
+                status=status.HTTP_200_OK,
+            )
+
+        except (TicketAlreadyClosed, InvalidPriorityTransition) as e:
+            # Regla de negocio violada: ticket cerrado o transición de prioridad inválida
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ValueError as e:
+            # Valor inválido o ticket no encontrado
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except DomainException as e:
+            # Otras excepciones de dominio (ej. permiso denegado)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
     @action(detail=False, methods=["get"], url_path="my-tickets/(?P<user_id>[^/.]+)")
     def my_tickets(self, request, user_id=None):
         """
