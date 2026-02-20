@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from .events import DomainEvent, TicketCreated, TicketStatusChanged, TicketPriorityChanged
-from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition, InvalidTicketStateTransition
+from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition, InvalidTicketStateTransition, EmptyResponseError
 
 
 @dataclass
@@ -207,6 +207,54 @@ class Ticket:
             new_priority=new_priority
         )
         self._domain_events.append(event)
+    
+    def _validate_can_add_response(self) -> None:
+        """
+        Valida que el ticket permita agregar una respuesta.
+
+        Regla de negocio R7: Solo se pueden agregar respuestas a tickets
+        en estados OPEN o IN_PROGRESS. Un ticket CLOSED no acepta respuestas.
+
+        Raises:
+            TicketAlreadyClosed: Si el ticket está en estado CLOSED
+        """
+        if self.status == self.CLOSED:
+            raise TicketAlreadyClosed(self.id)
+
+    def _validate_response_text(self, text: str) -> None:
+        """
+        Valida que el texto de la respuesta no esté vacío.
+
+        Regla de negocio R8: El texto de la respuesta es obligatorio.
+        Se rechaza texto None, cadena vacía o solo espacios en blanco.
+
+        Args:
+            text: Texto de la respuesta a validar
+
+        Raises:
+            EmptyResponseError: Si el texto está vacío o es None
+        """
+        if not text or not text.strip():
+            raise EmptyResponseError()
+
+    def add_response(self, text: str, admin_id: str) -> None:
+        """
+        Agrega una respuesta de admin al ticket.
+
+        Regla de negocio R7: Solo tickets en estado OPEN o IN_PROGRESS
+        pueden recibir respuestas. Tickets en estado CLOSED son rechazados.
+        Regla de negocio R8: El texto de la respuesta es obligatorio.
+
+        Args:
+            text: Texto de la respuesta
+            admin_id: ID del admin que responde
+
+        Raises:
+            TicketAlreadyClosed: Si el ticket está en estado CLOSED
+            EmptyResponseError: Si el texto está vacío o es None
+        """
+        self._validate_can_add_response()
+        self._validate_response_text(text)
     
     def collect_domain_events(self) -> List[DomainEvent]:
         """

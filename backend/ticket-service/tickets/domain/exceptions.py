@@ -43,3 +43,10 @@ class InvalidPriorityTransition(DomainException):
         super().__init__(
             f"No se puede cambiar la prioridad de '{current_priority}' a '{new_priority}': {reason}"
         )
+
+
+class EmptyResponseError(DomainException):
+    """Se lanza cuando se intenta crear una respuesta con texto vacío."""
+    
+    def __init__(self):
+        super().__init__("El texto de la respuesta es obligatorio")
