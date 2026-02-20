@@ -508,46 +508,6 @@ class TestChangeTicketPriorityUseCase:
         existing_ticket, use_case, command, mock_repo, mock_publisher = (
             self._create_ticket_and_use_case(ticket_id=6, new_priority=priority)
         )
-    def test_priority_change_without_justification_is_valid(self):
-        """
-        EP10: Cambio de prioridad sin justificación es válido.
-
-        Scenario: Cambio de prioridad sin justificación es válido (EP10)
-          Given un ticket en estado "In-Progress" con prioridad "Low"
-          And el usuario autenticado tiene rol "Administrador"
-          When cambia la prioridad a "High" sin ingresar justificación
-          Then la prioridad del ticket se actualiza a "High"
-          And no se muestra sección de justificación en el detalle
-        """
-        # Arrange
-        from tickets.application.use_cases import (
-            ChangeTicketPriorityUseCase,
-            ChangeTicketPriorityCommand
-        )
-        from tickets.domain.events import TicketPriorityChanged
-
-        mock_repo = Mock(spec=TicketRepository)
-        mock_publisher = Mock(spec=EventPublisher)
-
-        existing_ticket = Ticket(
-            id=10,
-            title="Test Ticket EP10",
-            description="Test Description",
-            status=Ticket.IN_PROGRESS,
-            user_id="user123",
-            created_at=datetime.now(),
-            priority="Low"
-        )
-        mock_repo.find_by_id.return_value = existing_ticket
-        mock_repo.save.return_value = existing_ticket
-
-        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
-        command = ChangeTicketPriorityCommand(
-            ticket_id=10,
-            new_priority="High"
-        )
-        command.user_role = "Administrador"
-        # Sin justificación (None por defecto)
 
         # Act
         updated_ticket = use_case.execute(command)
@@ -568,6 +528,44 @@ class TestChangeTicketPriorityUseCase:
         assert event.ticket_id == 6
         assert event.old_priority == "Unassigned"
         assert event.new_priority == priority
+
+    def test_priority_change_without_justification_is_valid(self):
+        """
+        EP10: Cambio de prioridad sin justificación es válido.
+
+        Scenario: Cambio de prioridad sin justificación es válido (EP10)
+          Given un ticket en estado "In-Progress" con prioridad "Low"
+          And el usuario autenticado tiene rol "Administrador"
+          When cambia la prioridad a "High" sin ingresar justificación
+          Then la prioridad del ticket se actualiza a "High"
+          And no se muestra sección de justificación en el detalle
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=10,
+                status=Ticket.IN_PROGRESS,
+                priority="Low",
+                new_priority="High",
+                user_role="Administrador",
+            )
+        )
+
+        # Act
+        updated_ticket = use_case.execute(command)
+
+        # Assert
+        assert updated_ticket.priority == "High"
+        assert updated_ticket.priority_justification is None
+        mock_repo.find_by_id.assert_called_once_with(10)
+        mock_repo.save.assert_called_once()
+        mock_publisher.publish.assert_called_once()
+        event = mock_publisher.publish.call_args[0][0]
+        assert isinstance(event, TicketPriorityChanged)
+        assert event.ticket_id == 10
+        assert event.old_priority == "Low"
+        assert event.new_priority == "High"
+        assert event.justification is None
 
     def test_cannot_revert_to_unassigned(self):
         """
@@ -648,18 +646,38 @@ class TestChangeTicketPriorityUseCase:
 
         # Assert — no domain events collected
         assert existing_ticket.collect_domain_events() == []
-        # Assert
-        assert updated_ticket.priority == "High"
-        assert updated_ticket.priority_justification is None
 
-        # Verificar evento publicado con justification=None
-        mock_publisher.publish.assert_called_once()
-        event = mock_publisher.publish.call_args[0][0]
-        assert isinstance(event, TicketPriorityChanged)
-        assert event.ticket_id == 10
-        assert event.old_priority == "Low"
-        assert event.new_priority == "High"
-        assert event.justification is None
+    @pytest.mark.parametrize("invalid_priority", ["critical", "urgent", "CRITICAL", "none", "123"])
+    def test_invalid_priority_value_is_rejected(self, invalid_priority: str):
+        """
+        EP9: Valor de prioridad fuera de enumeración es rechazado.
+
+        Scenario: Valor de prioridad fuera de enumeración es rechazado (EP9)
+          Given un ticket en estado "Open" con prioridad "Unassigned"
+          And el usuario autenticado tiene rol "Administrador"
+          When intenta cambiar la prioridad a un valor no válido
+          Then el sistema rechaza la acción
+          And no se persiste ningún cambio
+          And no se publica ningún evento de dominio
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=9,
+                status=Ticket.OPEN,
+                priority="Unassigned",
+                new_priority=invalid_priority,
+                user_role="Administrador",
+            )
+        )
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="Prioridad inválida"):
+            use_case.execute(command)
+
+        # No debe persistir ni publicar eventos
+        mock_repo.save.assert_not_called()
+        mock_publisher.publish.assert_not_called()
 
     def test_priority_change_with_justification_is_saved(self):
         """
@@ -673,33 +691,15 @@ class TestChangeTicketPriorityUseCase:
           And la justificación "Urgente por SLA" es visible en el detalle del ticket
         """
         # Arrange
-        from tickets.application.use_cases import (
-            ChangeTicketPriorityUseCase,
-            ChangeTicketPriorityCommand
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=11,
+                status=Ticket.OPEN,
+                priority="Unassigned",
+                new_priority="High",
+                user_role="Administrador",
+            )
         )
-        from tickets.domain.events import TicketPriorityChanged
-
-        mock_repo = Mock(spec=TicketRepository)
-        mock_publisher = Mock(spec=EventPublisher)
-
-        existing_ticket = Ticket(
-            id=11,
-            title="Test Ticket EP11",
-            description="Test Description",
-            status=Ticket.OPEN,
-            user_id="user123",
-            created_at=datetime.now(),
-            priority="Unassigned"
-        )
-        mock_repo.find_by_id.return_value = existing_ticket
-        mock_repo.save.return_value = existing_ticket
-
-        use_case = ChangeTicketPriorityUseCase(mock_repo, mock_publisher)
-        command = ChangeTicketPriorityCommand(
-            ticket_id=11,
-            new_priority="High"
-        )
-        command.user_role = "Administrador"
         command.justification = "Urgente por SLA"
 
         # Act
@@ -708,8 +708,8 @@ class TestChangeTicketPriorityUseCase:
         # Assert
         assert updated_ticket.priority == "High"
         assert updated_ticket.priority_justification == "Urgente por SLA"
-
-        # Verificar evento publicado con justificación
+        mock_repo.find_by_id.assert_called_once_with(11)
+        mock_repo.save.assert_called_once()
         mock_publisher.publish.assert_called_once()
         event = mock_publisher.publish.call_args[0][0]
         assert isinstance(event, TicketPriorityChanged)
