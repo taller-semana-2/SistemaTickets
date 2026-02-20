@@ -30,6 +30,7 @@ class Notification(models.Model):
     message = models.TextField(blank=True)
     sent_at = models.DateTimeField(auto_now_add=True)
     read = models.BooleanField(default=False, db_index=True)
+    user_id = models.CharField(max_length=128, db_index=True, default='')
 
     def __str__(self):
         """Retorna representación legible de la notificación.
