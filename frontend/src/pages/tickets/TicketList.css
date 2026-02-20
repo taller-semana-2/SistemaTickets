@@ -31,7 +31,7 @@
   /* 'minmax(300px, 1fr)' asegura que los tickets no sean más pequeños de 300px */
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 2rem; /* Espacio entre tickets */
-  align-items: start;
+  align-items: stretch;
 }
 
 /* Estilos para mensajes de estado */
