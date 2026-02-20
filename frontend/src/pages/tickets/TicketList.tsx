@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ticketApi } from '../../services/ticketApi';
 import { authService } from '../../services/auth';
-import type { Ticket } from '../../types/ticket';
+import type { Ticket, TicketPriority } from '../../types/ticket';
 import TicketItem from './TicketItem';
 import { LoadingState, EmptyState, PageHeader } from '../../components/common';
 import './TicketList.css';
@@ -70,6 +70,21 @@ const TicketList = () => {
   }
 };
 
+  const handleUpdatePriority = async (
+    id: number,
+    priority: TicketPriority
+  ) => {
+    try {
+      const updated = await ticketApi.updatePriority(id, { priority });
+      setTickets((prev) =>
+        prev.map((t) => (t.id === id ? updated : t))
+      );
+    } catch (error) {
+      console.error('Error actualizando prioridad', error);
+      alert('No se pudo actualizar la prioridad');
+    }
+  };
+
   if (loading) {
     return <LoadingState message="Cargando tickets..." />;
   }
@@ -96,6 +111,7 @@ const TicketList = () => {
               ticket={ticket}
               onDelete={handleDelete}
               onUpdateStatus={handleUpdateStatus}
+              onUpdatePriority={handleUpdatePriority}
             />
           ))}
         </div>

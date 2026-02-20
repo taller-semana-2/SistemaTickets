@@ -100,8 +100,17 @@ logs/
 *.temp
 .cache/
 
+<<<<<<< feature/sistema_de_notificaciones
+
+
+*.github/agents/
+*.github/agents/!iris.agent.md
+*.github/skills
+
+=======
 .github/agents/*
 .github/skills/*
+>>>>>>> develop
 TEST_PLAN2.md
 
 PRIORITY_IMPLEMENTATION_GAP.md

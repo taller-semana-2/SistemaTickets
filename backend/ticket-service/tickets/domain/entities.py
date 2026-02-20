@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from .events import DomainEvent, TicketCreated, TicketStatusChanged, TicketPriorityChanged
-from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition, InvalidTicketStateTransition
+from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition, InvalidTicketStateTransition, EmptyResponseError, ResponseTooLongError
 
 
 @dataclass
@@ -46,6 +46,9 @@ class Ticket:
     PRIORITY_LOW = "Low"
     PRIORITY_MEDIUM = "Medium"
     PRIORITY_HIGH = "High"
+    
+    # Longitud máxima del texto de respuesta
+    MAX_RESPONSE_LENGTH = 2000
     
     # Constante con todas las prioridades válidas (para validación)
     VALID_PRIORITIES = [
@@ -280,6 +283,62 @@ class Ticket:
             justification=justification
         )
         self._domain_events.append(event)
+    
+    def _validate_can_add_response(self) -> None:
+        """
+        Valida que el ticket permita agregar una respuesta.
+
+        Regla de negocio R7: Solo se pueden agregar respuestas a tickets
+        en estados OPEN o IN_PROGRESS. Un ticket CLOSED no acepta respuestas.
+
+        Raises:
+            TicketAlreadyClosed: Si el ticket está en estado CLOSED
+        """
+        if self.status == self.CLOSED:
+            raise TicketAlreadyClosed(self.id)
+
+    def _validate_response_text(self, text: str) -> None:
+        """
+        Valida el texto de la respuesta: obligatoriedad y longitud máxima.
+
+        Regla de negocio R8: El texto de la respuesta es obligatorio.
+        Se rechaza texto None, cadena vacía o solo espacios en blanco.
+
+        Regla de negocio (Issue #77): El texto no puede exceder
+        MAX_RESPONSE_LENGTH (2000) caracteres.
+
+        Args:
+            text: Texto de la respuesta a validar
+
+        Raises:
+            EmptyResponseError: Si el texto está vacío, None o solo espacios
+            ResponseTooLongError: Si el texto excede MAX_RESPONSE_LENGTH caracteres
+        """
+        if not text or not text.strip():
+            raise EmptyResponseError()
+        if len(text) > self.MAX_RESPONSE_LENGTH:
+            raise ResponseTooLongError(self.MAX_RESPONSE_LENGTH)
+
+    def add_response(self, text: str, admin_id: str) -> None:
+        """
+        Agrega una respuesta de admin al ticket.
+
+        Regla de negocio R7: Solo tickets en estado OPEN o IN_PROGRESS
+        pueden recibir respuestas. Tickets en estado CLOSED son rechazados.
+        Regla de negocio R8: El texto de la respuesta es obligatorio.
+        Regla de negocio (Issue #77): Máximo MAX_RESPONSE_LENGTH caracteres.
+
+        Args:
+            text: Texto de la respuesta
+            admin_id: ID del admin que responde
+
+        Raises:
+            TicketAlreadyClosed: Si el ticket está en estado CLOSED
+            EmptyResponseError: Si el texto está vacío o es None
+            ResponseTooLongError: Si el texto excede MAX_RESPONSE_LENGTH caracteres
+        """
+        self._validate_can_add_response()
+        self._validate_response_text(text)
     
     def collect_domain_events(self) -> List[DomainEvent]:
         """

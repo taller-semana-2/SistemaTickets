@@ -13,7 +13,7 @@ class Notification(models.Model):
     Cada notificación está vinculada a un ticket mediante ``ticket_id``
     (referencia lógica al ticket-service, no una FK de Django). Se crea
     automáticamente cuando el consumidor RabbitMQ recibe un evento de
-    creación de ticket.
+    creación de ticket o una respuesta de administrador.
 
     Attributes:
         ticket_id (CharField): Identificador del ticket asociado. Indexado
@@ -24,12 +24,18 @@ class Notification(models.Model):
         read (BooleanField): Indica si la notificación fue leída por el
             usuario. Indexado para filtrar rápidamente no-leídas.
             Por defecto ``False``.
+        user_id (CharField): Identificador del usuario destinatario de la
+            notificación. Usado para filtrado en SSE. Indexado.
+        response_id (IntegerField): ID de la respuesta de admin que generó
+            esta notificación. Clave de idempotencia (EP21). Nullable.
     """
 
     ticket_id = models.CharField(max_length=128, db_index=True)
     message = models.TextField(blank=True)
     sent_at = models.DateTimeField(auto_now_add=True)
     read = models.BooleanField(default=False, db_index=True)
+    user_id = models.CharField(max_length=128, db_index=True, default='')
+    response_id = models.IntegerField(null=True, blank=True, db_index=True)
 
     def __str__(self):
         """Retorna representación legible de la notificación.

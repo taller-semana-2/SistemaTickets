@@ -33,6 +33,7 @@ services:
       DJANGO_SETTINGS_MODULE: ticket_service.settings
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-default-dev-secret-change-in-production}
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
       POSTGRES_DB: sistema_tickets
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -101,6 +102,7 @@ services:
       DJANGO_SETTINGS_MODULE: assessment_service.settings
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-default-dev-secret-change-in-production}
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
       POSTGRES_DB: assessment_db
       POSTGRES_USER: assessment_user
       POSTGRES_PASSWORD: assessment_pass
@@ -172,7 +174,9 @@ services:
       - ./.env
     environment:
       DJANGO_SETTINGS_MODULE: notification_service.settings
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-default-dev-secret-change-in-production}
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
       POSTGRES_DB: notifications_db
       POSTGRES_USER: notification_user
       POSTGRES_PASSWORD: notif_pass
@@ -246,6 +250,7 @@ services:
       DJANGO_SETTINGS_MODULE: user_service.settings
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-default-dev-secret-change-in-production}
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
       POSTGRES_DB: users_db
       POSTGRES_USER: users_user
       POSTGRES_PASSWORD: users_pass
