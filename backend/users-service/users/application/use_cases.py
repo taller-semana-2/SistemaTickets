@@ -40,11 +40,14 @@ class ChangeUserEmailCommand:
 
 @dataclass
 class RegisterUserCommand:
-    """Comando: Registrar un nuevo usuario."""
+    """Comando: Registrar un nuevo usuario.
+    
+    SEGURIDAD: No incluye campo 'role'. El registro público
+    siempre crea usuarios con rol USER.
+    """
     email: str
     username: str
     password: str
-    role: str = "USER"
 
 
 @dataclass
@@ -349,15 +352,13 @@ class RegisterUserUseCase:
         if self.repository.exists_by_email(command.email):
             raise UserAlreadyExists(command.email)
         
-        # 2. Convertir string role a enum
-        role = UserRole(command.role)
-        
-        # 3. Crear entidad de dominio usando factory (valida)
+        # 2. Crear entidad de dominio usando factory (valida)
+        # SEGURIDAD: Siempre forzar UserRole.USER en registro público
         user = self.factory.create(
             email=command.email,
             username=command.username,
             password=command.password,
-            role=role
+            role=UserRole.USER
         )
         
         # 4. Persistir el usuario
