@@ -241,3 +241,46 @@ class TestRabbitMQEventPublisher(TestCase):
             publisher.publish(event)
         
         assert "Connection failed" in str(context.exception)
+
+
+class TestTicketModel(TestCase):
+    """Tests del modelo Django Ticket — campos de prioridad (Phase 1)."""
+
+    def setUp(self):
+        """Crear ticket base reutilizable para cada test."""
+        self.ticket = DjangoTicket.objects.create(
+            title="Test",
+            description="Description",
+        )
+
+    def test_ticket_model_creation_defaults_priority_to_unassigned(self):
+        """Crear ticket sin prioridad explícita debe asignar 'Unassigned' por defecto."""
+        assert self.ticket.priority == "Unassigned"
+
+    def test_ticket_model_creation_defaults_priority_justification_to_none(self):
+        """Crear ticket sin justificación debe dejar priority_justification en None."""
+        assert self.ticket.priority_justification is None
+
+    def test_ticket_model_accepts_valid_priority_values(self):
+        """El modelo acepta los valores de prioridad válidos: Low, Medium, High."""
+        valid_priorities = ["Low", "Medium", "High"]
+        for value in valid_priorities:
+            ticket = DjangoTicket.objects.create(
+                title=f"Test {value}",
+                description="Description",
+                priority=value,
+            )
+            ticket.refresh_from_db()
+            assert ticket.priority == value, (
+                f"Se esperaba priority='{value}', se obtuvo '{ticket.priority}'"
+            )
+
+    def test_ticket_model_can_update_priority_and_justification(self):
+        """Un ticket existente puede actualizar priority y priority_justification."""
+        self.ticket.priority = "High"
+        self.ticket.priority_justification = "Urgente"
+        self.ticket.save()
+
+        updated_ticket = DjangoTicket.objects.get(pk=self.ticket.id)
+        assert updated_ticket.priority == "High"
+        assert updated_ticket.priority_justification == "Urgente"
