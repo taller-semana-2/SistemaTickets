@@ -1,4 +1,4 @@
-import type { Ticket, CreateTicketDTO } from '../types/ticket';
+import type { Ticket, CreateTicketDTO, TicketResponse } from '../types/ticket';
 import { ticketApiClient } from './axiosConfig';
 
 export const ticketApi = {
@@ -7,6 +7,24 @@ export const ticketApi = {
    */
   getTickets: async (): Promise<Ticket[]> => {
     const { data } = await ticketApiClient.get<Ticket[]>('/tickets/');
+    return data;
+  },
+
+  /**
+   * Obtener un ticket por ID
+   */
+  getTicket: async (id: number): Promise<Ticket> => {
+    const { data } = await ticketApiClient.get<Ticket>(`/tickets/${id}/`);
+    return data;
+  },
+
+  /**
+   * Obtener respuestas de un ticket ordenadas cronológicamente (ascendente)
+   */
+  getResponses: async (ticketId: number): Promise<TicketResponse[]> => {
+    const { data } = await ticketApiClient.get<TicketResponse[]>(
+      `/tickets/${ticketId}/responses/`
+    );
     return data;
   },
 
