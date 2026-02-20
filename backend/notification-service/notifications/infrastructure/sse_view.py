@@ -114,16 +114,32 @@ def _notification_stream(user_id: str) -> Generator[str, None, None]:
 def sse_notifications_view(request, user_id: str) -> StreamingHttpResponse:
     """Endpoint SSE que mantiene una conexión abierta para un usuario.
 
-    Retorna un StreamingHttpResponse con content-type text/event-stream
-    que emite las notificaciones del usuario en formato SSE.
+    Valida que el ``user_id`` del path esté presente y no sea vacío antes
+    de abrir el stream. Retorna un StreamingHttpResponse con content-type
+    text/event-stream que emite las notificaciones del usuario en formato SSE.
 
     Args:
         request: Django HTTP request.
-        user_id: Identificador del usuario.
+        user_id: Identificador del usuario (del path de la URL).
 
     Returns:
-        StreamingHttpResponse con las notificaciones del usuario.
+        StreamingHttpResponse con las notificaciones del usuario, o
+        HttpResponse 401 si el user_id no está identificado.
     """
+    # B5 — Validar que user_id es válido antes de abrir el stream.
+    # EventSource no soporta cabeceras personalizadas, por lo que el user_id
+    # viaja en el path. Validamos que sea no vacío; en producción se
+    # recomienda reemplazar por una cookie HttpOnly o un token de corta
+    # duración en el query string.
+    if not user_id or not user_id.strip():
+        from django.http import HttpResponse
+        logger.warning("SSE connection attempt with empty user_id")
+        return HttpResponse(
+            '{"error": "user_id requerido para conectarse al canal SSE"}',
+            content_type='application/json',
+            status=401,
+        )
+
     logger.info("SSE connection opened for user=%s", user_id)
 
     response = StreamingHttpResponse(

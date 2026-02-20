@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useNotifications } from '../context/NotificacionContext';
+import { authService } from '../services/auth';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,13 +29,23 @@ export interface UseSSEOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Constante de URL (permite sobreescribir vía variable de entorno)
+// Constante de URL base (permite sobreescribir vía variable de entorno)
 // ---------------------------------------------------------------------------
 
-const SSE_URL =
+const SSE_BASE_URL =
   (import.meta.env.VITE_NOTIFICATION_BASE_URL as string | undefined) ?? 'http://localhost:8001';
 
-const SSE_ENDPOINT = `${SSE_URL}/api/notifications/stream/`;
+/**
+ * Builds the SSE endpoint URL including the authenticated user's ID.
+ * Pattern: /api/notifications/sse/<user_id>/
+ * The user_id in the path acts as the identity claim for the MVP; the
+ * backend filters events for that specific user.
+ */
+const buildSSEEndpoint = (): string => {
+  const currentUser = authService.getCurrentUser();
+  const userId = currentUser?.id ?? '';
+  return `${SSE_BASE_URL}/api/notifications/sse/${userId}/`;
+};
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -92,7 +103,8 @@ export const useSSE = (options?: UseSSEOptions): void => {
   }, []);
 
   useEffect(() => {
-    const es = new EventSource(SSE_ENDPOINT);
+    const sseEndpoint = buildSSEEndpoint();
+    const es = new EventSource(sseEndpoint);
 
     es.addEventListener('notification', handleNotification);
 
