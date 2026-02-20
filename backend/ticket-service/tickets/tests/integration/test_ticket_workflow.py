@@ -8,6 +8,7 @@ These tests validate:
 - Repository pattern implementation
 - Event-driven architecture
 - Business rules enforcement across the stack
+- Priority workflow validation
 """
 
 from django.test import TestCase
@@ -59,7 +60,8 @@ class TestCompleteTicketWorkflow(TestCase):
         ticket = create_use_case.execute(
             CreateTicketCommand(
                 title="Complete Lifecycle Test",
-                description="Testing full workflow"
+                description="Testing full workflow",
+                user_id="1"
             )
         )
         
@@ -106,20 +108,23 @@ class TestCompleteTicketWorkflow(TestCase):
         assert db_ticket.status == "CLOSED"
     
     def test_direct_open_to_closed_transition(self):
-        """Test: Ticket can go directly from OPEN to CLOSED."""
+        """Test: Ticket can go from OPEN to CLOSED via IN_PROGRESS."""
         # Create ticket
         create_use_case = CreateTicketUseCase(
             self.repository,
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Direct Close", "Test")
+            CreateTicketCommand("Direct Close", "Test", "1")
         )
         
-        # Close directly from OPEN
+        # Close via IN_PROGRESS
         change_use_case = ChangeTicketStatusUseCase(
             self.repository,
             self.event_publisher
+        )
+        ticket = change_use_case.execute(
+            ChangeTicketStatusCommand(ticket.id, DomainTicket.IN_PROGRESS)
         )
         ticket = change_use_case.execute(
             ChangeTicketStatusCommand(ticket.id, DomainTicket.CLOSED)
@@ -142,13 +147,16 @@ class TestCompleteTicketWorkflow(TestCase):
         )
         
         # Create three tickets
-        ticket1 = create_use_case.execute(CreateTicketCommand("T1", "D1"))
-        ticket2 = create_use_case.execute(CreateTicketCommand("T2", "D2"))
-        ticket3 = create_use_case.execute(CreateTicketCommand("T3", "D3"))
+        ticket1 = create_use_case.execute(CreateTicketCommand("T1", "D1", "1"))
+        ticket2 = create_use_case.execute(CreateTicketCommand("T2", "D2", "1"))
+        ticket3 = create_use_case.execute(CreateTicketCommand("T3", "D3", "1"))
         
         # Move them to different states
         change_use_case.execute(
             ChangeTicketStatusCommand(ticket1.id, DomainTicket.IN_PROGRESS)
+        )
+        change_use_case.execute(
+            ChangeTicketStatusCommand(ticket2.id, DomainTicket.IN_PROGRESS)
         )
         change_use_case.execute(
             ChangeTicketStatusCommand(ticket2.id, DomainTicket.CLOSED)
@@ -174,12 +182,15 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("To Close", "Test")
+            CreateTicketCommand("To Close", "Test", "1")
         )
         
         change_use_case = ChangeTicketStatusUseCase(
             self.repository,
             self.event_publisher
+        )
+        change_use_case.execute(
+            ChangeTicketStatusCommand(ticket.id, DomainTicket.IN_PROGRESS)
         )
         change_use_case.execute(
             ChangeTicketStatusCommand(ticket.id, DomainTicket.CLOSED)
@@ -203,7 +214,7 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Test", "Desc")
+            CreateTicketCommand("Test", "Desc", "1")
         )
         
         change_use_case = ChangeTicketStatusUseCase(
@@ -225,7 +236,7 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Test", "Desc")
+            CreateTicketCommand("Test", "Desc", "1")
         )
         
         initial_call_count = self.event_publisher.publish.call_count
@@ -256,7 +267,7 @@ class TestCompleteTicketWorkflow(TestCase):
         )
         
         ticket = create_use_case.execute(
-            CreateTicketCommand("Event Test", "Testing events")
+            CreateTicketCommand("Event Test", "Testing events", "1")
         )
         
         # Verify event published
@@ -278,7 +289,7 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Test", "Desc")
+            CreateTicketCommand("Test", "Desc", "1")
         )
         
         self.event_publisher.reset_mock()
@@ -310,7 +321,7 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Multi", "Events")
+            CreateTicketCommand("Multi", "Events", "1")
         )
         
         # Track events
@@ -342,7 +353,7 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         domain_ticket = create_use_case.execute(
-            CreateTicketCommand("Translation Test", "Testing repository")
+            CreateTicketCommand("Translation Test", "Testing repository", "1")
         )
         
         # Verify domain entity properties
@@ -367,7 +378,7 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Preserve", "Data integrity test")
+            CreateTicketCommand("Preserve", "Data integrity test", "1")
         )
         
         original_title = ticket.title
@@ -404,7 +415,7 @@ class TestCompleteTicketWorkflow(TestCase):
         # Try to create ticket with empty title
         with self.assertRaises(InvalidTicketData):
             create_use_case.execute(
-                CreateTicketCommand(title="", description="No title")
+                CreateTicketCommand(title="", description="No title", user_id="1")
             )
         
         # Verify no ticket created
@@ -443,7 +454,7 @@ class TestCompleteTicketWorkflow(TestCase):
         
         # Create ticket
         ticket = create_use_case.execute(
-            CreateTicketCommand("Architecture", "Testing layers")
+            CreateTicketCommand("Architecture", "Testing layers", "1")
         )
         
         # Verify domain entity returned (not Django model)
@@ -455,7 +466,8 @@ class TestCompleteTicketWorkflow(TestCase):
         # Create domain entity directly (no Django involved) using factory
         domain_ticket = DomainTicket.create(
             title="Pure Domain",
-            description="No framework dependencies"
+            description="No framework dependencies",
+            user_id="1"
         )
         
         # Apply business rule
@@ -482,12 +494,16 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Concurrent", "Test")
+            CreateTicketCommand("Concurrent", "Test", "1")
         )
         
+        # Move to IN_PROGRESS first so both loads start from IN_PROGRESS
         change_use_case = ChangeTicketStatusUseCase(
             self.repository,
             self.event_publisher
+        )
+        change_use_case.execute(
+            ChangeTicketStatusCommand(ticket.id, DomainTicket.IN_PROGRESS)
         )
         
         # Load ticket twice (simulating concurrent access)
@@ -495,7 +511,7 @@ class TestCompleteTicketWorkflow(TestCase):
         ticket2 = self.repository.find_by_id(ticket.id)
         
         # Modify both and save
-        ticket1.change_status(DomainTicket.IN_PROGRESS)
+        ticket1.change_status(DomainTicket.CLOSED)
         self.repository.save(ticket1)
         
         ticket2.change_status(DomainTicket.CLOSED)
@@ -519,7 +535,7 @@ class TestCompleteTicketWorkflow(TestCase):
         # Try to create ticket (should fail on event publish)
         with self.assertRaises(Exception):
             create_use_case.execute(
-                CreateTicketCommand("Failing", "Event publish fails")
+                CreateTicketCommand("Failing", "Event publish fails", "1")
             )
         
         # Note: Current implementation doesn't rollback on publish failure
