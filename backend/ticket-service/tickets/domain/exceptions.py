@@ -50,3 +50,11 @@ class EmptyResponseError(DomainException):
     
     def __init__(self):
         super().__init__("El texto de la respuesta es obligatorio")
+
+
+class ResponseTooLongError(DomainException):
+    """Se lanza cuando el texto de a respuesta excede el límite de caracteres."""
+    
+    def __init__(self, max_length: int = 2000):
+        self.max_length = max_length
+        super().__init__(f"El texto de la respuesta no puede exceder {max_length} caracteres")

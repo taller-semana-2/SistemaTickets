@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from .events import DomainEvent, TicketCreated, TicketStatusChanged, TicketPriorityChanged
-from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition, InvalidTicketStateTransition, EmptyResponseError
+from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition, InvalidTicketStateTransition, EmptyResponseError, ResponseTooLongError
 
 
 @dataclass
@@ -28,6 +28,9 @@ class Ticket:
     PRIORITY_LOW = "Low"
     PRIORITY_MEDIUM = "Medium"
     PRIORITY_HIGH = "High"
+    
+    # Longitud máxima del texto de respuesta
+    MAX_RESPONSE_LENGTH = 2000
     
     # Constante con todas las prioridades válidas (para validación)
     VALID_PRIORITIES = [
@@ -236,6 +239,8 @@ class Ticket:
         """
         if not text or not text.strip():
             raise EmptyResponseError()
+        if len(text) > self.MAX_RESPONSE_LENGTH:
+            raise ResponseTooLongError(self.MAX_RESPONSE_LENGTH)
 
     def add_response(self, text: str, admin_id: str) -> None:
         """
