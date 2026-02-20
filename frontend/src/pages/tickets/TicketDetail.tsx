@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { ticketApi } from '../../services/ticketApi';
 import type { Ticket } from '../../types/ticket';
 import { formatPriority } from './priorityUtils';
+import TicketPriorityManager from './TicketPriorityManager';
 
 const TicketDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -76,6 +77,11 @@ const TicketDetail = () => {
           {ticket.priority_justification}
         </p>
       )}
+
+      <TicketPriorityManager
+        ticket={ticket}
+        onUpdate={(updated) => setTicket(updated)}
+      />
     </div>
   );
 };
