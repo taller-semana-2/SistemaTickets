@@ -3,25 +3,23 @@ import { ticketApi } from '../../services/ticketApi';
 import { authService } from '../../services/auth';
 import type { Ticket, TicketPriority } from '../../types/ticket';
 import TicketItem from './TicketItem';
+import ConfirmModal from '../../components/ConfirmModal';
 import { LoadingState, EmptyState, PageHeader } from '../../components/common';
 import './TicketList.css';
 
 const TicketList = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   useEffect(() => {
     ticketApi.getTickets()
       .then((data) => {
-        // Obtener usuario actual
         const currentUser = authService.getCurrentUser();
-        
-        // Si es USER, filtrar solo sus tickets
         if (currentUser && currentUser.role === 'USER') {
           const userTickets = data.filter(ticket => ticket.user_id === currentUser.id);
           setTickets(userTickets);
         } else {
-          // ADMIN ve todos los tickets
           setTickets(data);
         }
       })
@@ -33,22 +31,20 @@ const TicketList = () => {
       });
   }, []);
 
-  const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      '¿Estás seguro de que deseas eliminar este ticket? Esta acción no se puede deshacer.'
-    );
+  const handleDelete = (id: number) => {
+    setDeleteId(id);
+  };
 
-    if (!confirmed) return;
-
+  const confirmDelete = async () => {
+    if (deleteId === null) return;
     try {
-      await ticketApi.deleteTicket(id);
-
-      setTickets((prevTickets) =>
-        prevTickets.filter((ticket) => ticket.id !== id)
-      );
+      await ticketApi.deleteTicket(deleteId);
+      setTickets((prev) => prev.filter((t) => t.id !== deleteId));
     } catch (error) {
       console.error('Error al eliminar el ticket:', error);
       alert('No se pudo eliminar el ticket');
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -89,7 +85,6 @@ const TicketList = () => {
     return <LoadingState message="Cargando tickets..." />;
   }
 
-  // Determinar título según rol
   const currentUser = authService.getCurrentUser();
   const isUser = currentUser?.role === 'USER';
   const pageTitle = isUser ? 'Mis Tickets' : 'Panel de Tickets';
@@ -116,8 +111,17 @@ const TicketList = () => {
           ))}
         </div>
       )}
+
+      {deleteId !== null && (
+        <ConfirmModal
+          message="¿Estás seguro de que deseas eliminar este ticket? Esta acción no se puede deshacer."
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteId(null)}
+        />
+      )}
     </div>
   );
 };
 
 export default TicketList;
+
