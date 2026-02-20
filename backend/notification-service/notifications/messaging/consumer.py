@@ -4,6 +4,12 @@ Este módulo implementa un consumidor standalone que escucha eventos
 publicados en un exchange fanout de RabbitMQ y crea registros de
 notificación en la base de datos del notification-service.
 
+Eventos soportados:
+    - ``ticket.response_added``: Delegado a
+      :class:`~notifications.application.use_cases.CreateNotificationFromResponseUseCase`.
+    - ``ticket.created`` (y cualquier otro): Creación directa vía ORM
+      (backward-compatible).
+
 Variables de entorno requeridas:
     RABBITMQ_HOST: Hostname del servidor RabbitMQ (ej. 'localhost', 'rabbitmq').
     RABBITMQ_EXCHANGE_NAME: Nombre del exchange fanout donde se publican eventos.
@@ -12,12 +18,6 @@ Variables de entorno requeridas:
 Ejemplo de uso::
 
     $ python -m notifications.messaging.consumer
-
-Formato esperado del mensaje JSON::
-
-    {
-        "ticket_id": "<id_del_ticket>"
-    }
 """
 
 import os
@@ -50,13 +50,61 @@ EXCHANGE_NAME = os.environ.get('RABBITMQ_EXCHANGE_NAME')
 QUEUE_NAME = os.environ.get('RABBITMQ_QUEUE_NOTIFICATION')
 
 
-def callback(ch, method, properties, body):
-    """Procesa un mensaje entrante de RabbitMQ y crea una notificación.
+def _handle_response_added(data: dict) -> None:
+    """Procesa un evento ``ticket.response_added`` mediante el caso de uso.
 
-    Deserializa el cuerpo del mensaje como JSON, extrae el ``ticket_id``
-    y persiste un nuevo registro :class:`~notifications.models.Notification`
-    en la base de datos. Una vez procesado, envía un ACK al broker para
-    confirmar la recepción exitosa del mensaje.
+    Crea un :class:`CreateNotificationFromResponseCommand` a partir del
+    payload del evento y lo ejecuta a través del
+    :class:`CreateNotificationFromResponseUseCase`, que valida el schema,
+    garantiza idempotencia y persiste la notificación.
+
+    Args:
+        data: Payload del evento ya deserializado como diccionario.
+
+    Raises:
+        InvalidEventSchema: Si el evento carece de campos obligatorios.
+        Exception: Cualquier error inesperado durante la ejecución.
+    """
+    repository = DjangoNotificationRepository()
+    use_case = CreateNotificationFromResponseUseCase(repository=repository)
+    command = CreateNotificationFromResponseCommand(
+        event_type=data.get('event_type'),
+        ticket_id=data.get('ticket_id'),
+        response_id=data.get('response_id'),
+        admin_id=data.get('admin_id'),
+        response_text=data.get('response_text'),
+        user_id=data.get('user_id'),
+        timestamp=data.get('timestamp'),
+    )
+    use_case.execute(command)
+    logger.info("Notification created for response on ticket %s", data.get('ticket_id'))
+
+
+def _handle_ticket_created(data: dict) -> None:
+    """Procesa un evento ``ticket.created`` creando la notificación vía ORM.
+
+    Ruta backward-compatible que persiste directamente a través del modelo
+    Django. Se utiliza para ``ticket.created`` y cualquier evento que no
+    tenga un handler dedicado.
+
+    Args:
+        data: Payload del evento ya deserializado como diccionario.
+    """
+    ticket_id = data.get('ticket_id')
+    Notification.objects.create(
+        ticket_id=str(ticket_id),
+        message=f"Ticket {ticket_id} creado",
+    )
+    logger.info("Notification created for ticket %s", ticket_id)
+
+
+def callback(ch, method, properties, body):
+    """Dispatcher principal: enruta mensajes RabbitMQ al handler correcto.
+
+    Deserializa el cuerpo del mensaje como JSON, inspecciona el campo
+    ``event_type`` y delega al handler correspondiente. Siempre envía
+    ACK al broker para confirmar la recepción, incluso si el procesamiento
+    falla (evita redelivery infinito de mensajes inválidos).
 
     Args:
         ch (pika.channel.Channel): Canal de comunicación con RabbitMQ.
@@ -64,42 +112,28 @@ def callback(ch, method, properties, body):
             incluyendo ``delivery_tag`` necesario para el ACK.
         properties (pika.spec.BasicProperties): Propiedades AMQP del mensaje
             (content_type, headers, etc.).
-        body (bytes): Cuerpo del mensaje en formato JSON. Debe contener
-            la clave ``ticket_id`` con el identificador del ticket.
-
-    Note:
-        No implementa manejo de errores para mensajes malformados ni
-        fallos de escritura en BD. Un error no capturado impedirá el ACK
-        y el mensaje quedará pendiente en la cola.
+        body (bytes): Cuerpo del mensaje en formato JSON.
     """
-    data = json.loads(body)
+    try:
+        data = json.loads(body)
+    except (json.JSONDecodeError, TypeError) as exc:
+        logger.error("Failed to decode message body: %s", exc)
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        return
+
     event_type = data.get('event_type', '')
 
-    if event_type == 'ticket.response_added':
-        try:
-            repository = DjangoNotificationRepository()
-            use_case = CreateNotificationFromResponseUseCase(repository=repository)
-            command = CreateNotificationFromResponseCommand(
-                event_type=data.get('event_type'),
-                ticket_id=data.get('ticket_id'),
-                response_id=data.get('response_id'),
-                admin_id=data.get('admin_id'),
-                response_text=data.get('response_text'),
-                user_id=data.get('user_id'),
-                timestamp=data.get('timestamp'),
-            )
-            use_case.execute(command)
-            print(f"[NOTIFICATION] Notification created for response on ticket {data.get('ticket_id')}")
-        except InvalidEventSchema as e:
-            logger.error("Invalid event schema for ticket.response_added: %s", e)
-        except Exception as e:
-            logger.error("Error processing ticket.response_added: %s", e)
-    else:
-        ticket_id = data.get('ticket_id')
-        Notification.objects.create(ticket_id=str(ticket_id), message=f"Ticket {ticket_id} creado")
-        print(f"[NOTIFICATION] Notification created for ticket {ticket_id}")
-
-    ch.basic_ack(delivery_tag=method.delivery_tag)
+    try:
+        if event_type == 'ticket.response_added':
+            _handle_response_added(data)
+        else:
+            _handle_ticket_created(data)
+    except InvalidEventSchema as exc:
+        logger.error("Invalid event schema for %s: %s", event_type, exc)
+    except Exception as exc:
+        logger.error("Error processing event %s: %s", event_type, exc)
+    finally:
+        ch.basic_ack(delivery_tag=method.delivery_tag)
 
 
 def start_consuming():
