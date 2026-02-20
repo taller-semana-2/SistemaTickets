@@ -103,3 +103,7 @@ logs/
 .github/agents/*
 .github/skills/*
 TEST_PLAN2.md
+
+PRIORITY_IMPLEMENTATION_GAP.md
+
+TDD_TEST_SCENARIOS_PRIORITY.md
