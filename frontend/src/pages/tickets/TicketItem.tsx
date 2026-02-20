@@ -1,21 +1,6 @@
-import type { Ticket, TicketPriority } from '../../types/ticket';
+import type { Ticket } from '../../types/ticket';
+import { formatPriority } from './priorityUtils';
 import './TicketItem.css';
-
-const PRIORITY_LABELS: Record<TicketPriority, string> = {
-  UNASSIGNED: 'Unassigned',
-  LOW: 'Low',
-  MEDIUM: 'Medium',
-  HIGH: 'High',
-};
-
-/**
- * Devuelve la etiqueta legible para una prioridad.
- * Si no hay prioridad definida, retorna 'Unassigned'.
- */
-function getPriorityLabel(priority: TicketPriority | undefined): string {
-  if (!priority) return 'Unassigned';
-  return PRIORITY_LABELS[priority] ?? 'Unassigned';
-}
 
 interface Props {
   ticket: Ticket;
@@ -86,7 +71,7 @@ const TicketItem = ({ ticket, onDelete, onUpdateStatus }: Props) => {
           className={`priority-badge priority-${(ticket.priority ?? 'UNASSIGNED').toLowerCase()}`}
           title="Prioridad"
         >
-          {getPriorityLabel(ticket.priority)}
+          {formatPriority(ticket.priority)}
         </span>
 
         <button

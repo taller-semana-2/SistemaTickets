@@ -1,19 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ticketApi } from '../../services/ticketApi';
-import type { Ticket, TicketPriority } from '../../types/ticket';
-
-const PRIORITY_LABELS: Record<TicketPriority, string> = {
-  UNASSIGNED: 'Unassigned',
-  LOW: 'Low',
-  MEDIUM: 'Medium',
-  HIGH: 'High',
-};
-
-function getPriorityLabel(priority: TicketPriority | undefined): string {
-  if (!priority) return 'Unassigned';
-  return PRIORITY_LABELS[priority] ?? 'Unassigned';
-}
+import type { Ticket } from '../../types/ticket';
+import { formatPriority } from './priorityUtils';
 
 const TicketDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -77,7 +66,7 @@ const TicketDetail = () => {
         <span
           className={`priority-badge priority-${(ticket.priority ?? 'UNASSIGNED').toLowerCase()}`}
         >
-          {getPriorityLabel(ticket.priority)}
+          {formatPriority(ticket.priority)}
         </span>
       </div>
 
