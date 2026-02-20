@@ -14,6 +14,7 @@ from notifications.application.use_cases import (
     CreateNotificationFromResponseUseCase,
     CreateNotificationFromResponseCommand,
 )
+from notifications.domain.entities import Notification
 from notifications.domain.exceptions import InvalidEventSchema
 
 
@@ -164,3 +165,53 @@ class TestCreateNotificationFromResponseUseCase:
         assert "ticket_id" in error_msg
         assert "response_id" in error_msg
         assert "user_id" in error_msg
+
+    # ─────────────────────────────────────────────
+    # EP22 (R10): Idempotencia por response_id
+    # ─────────────────────────────────────────────
+
+    def test_duplicate_response_id_does_not_create_second_notification(self):
+        """EP22: Si ya existe una notificación para el mismo response_id,
+        el use case NO debe crear una segunda notificación. El repositorio
+        save() no debe ser invocado."""
+        # Arrange
+        repository = Mock()
+        existing_notification = Notification(
+            id=99,
+            ticket_id="42",
+            message="Nueva respuesta en Ticket #42",
+            sent_at=datetime.now(),
+            read=False,
+        )
+        # Simular que ya existe una notificación para este response_id
+        repository.find_by_response_id.return_value = existing_notification
+
+        use_case = CreateNotificationFromResponseUseCase(repository=repository)
+        command = self._build_valid_command()
+
+        # Act
+        result = use_case.execute(command)
+
+        # Assert: debe retornar la existente, sin crear nueva
+        assert result.id == 99
+        assert result.ticket_id == "42"
+        repository.save.assert_not_called()
+
+    def test_first_event_with_response_id_calls_find_and_save(self):
+        """EP22: Para un response_id nuevo (no procesado), el use case debe
+        verificar con find_by_response_id y luego guardar la notificación."""
+        # Arrange
+        repository = Mock()
+        repository.find_by_response_id.return_value = None
+        repository.save.side_effect = lambda n: n
+
+        use_case = CreateNotificationFromResponseUseCase(repository=repository)
+        command = self._build_valid_command()
+
+        # Act
+        result = use_case.execute(command)
+
+        # Assert
+        repository.find_by_response_id.assert_called_once_with(7)
+        repository.save.assert_called_once()
+        assert result.message == "Nueva respuesta en Ticket #42"
