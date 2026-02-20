@@ -129,7 +129,7 @@ class TestDjangoTicketRepository(TestCase):
         # No debe lanzar excepción
         self.repository.delete(999999)
 
-    # ========== Phase 2: Repository Priority Mapping (RED) ==========
+    # ==================== Priority Mapping Tests ====================
 
     def test_save_new_ticket_persists_priority(self):
         """save() persiste priority al crear un ticket nuevo."""

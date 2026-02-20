@@ -19,6 +19,7 @@ class DjangoTicketRepository(TicketRepository):
     def save(self, ticket: DomainTicket) -> DomainTicket:
         """
         Persiste un ticket en la base de datos (crear o actualizar).
+        Mapea todos los campos incluyendo priority y priority_justification.
         
         Args:
             ticket: Entidad de dominio
@@ -35,7 +36,11 @@ class DjangoTicketRepository(TicketRepository):
             django_ticket.user_id = ticket.user_id
             django_ticket.priority = ticket.priority
             django_ticket.priority_justification = ticket.priority_justification
-            django_ticket.save(update_fields=['title', 'description', 'status', 'user_id', 'priority', 'priority_justification'])
+            # Actualizar solo campos del dominio (excluye created_at)
+            django_ticket.save(update_fields=[
+                'title', 'description', 'status', 'user_id',
+                'priority', 'priority_justification',
+            ])
         else:
             # Crear nuevo ticket
             django_ticket = DjangoTicket.objects.create(
@@ -89,6 +94,7 @@ class DjangoTicketRepository(TicketRepository):
         """
         Convierte una entidad de dominio a modelo Django sin hacer query adicional.
         Útil para serialización en la capa de presentación.
+        Incluye mapeo de priority y priority_justification.
         
         Args:
             domain_ticket: Entidad de dominio
@@ -127,6 +133,7 @@ class DjangoTicketRepository(TicketRepository):
     def _to_domain(django_ticket: DjangoTicket) -> DomainTicket:
         """
         Convierte un modelo Django a entidad de dominio.
+        Mapea todos los campos persistidos, incluyendo priority y priority_justification.
         
         Args:
             django_ticket: Modelo Django

@@ -375,7 +375,7 @@ class TestDjangoTicketRepositoryIntegration(TestCase):
         assert ticket2.status == "OPEN"
         assert ticket1.status == "IN_PROGRESS"
 
-    # ========== Phase 2: Repository Priority Mapping (RED) ==========
+    # ==================== Priority Mapping Tests ====================
 
     def test_save_and_retrieve_preserves_priority(self):
         """Round-trip: guardar ticket con priority y recuperarlo preserva el valor."""
