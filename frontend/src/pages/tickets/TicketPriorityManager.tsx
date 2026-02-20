@@ -1,76 +1,59 @@
 /**
- * TicketPriorityManager — fase GREEN
+ * TicketPriorityManager
  *
- * Permite a un ADMIN cambiar la prioridad de un ticket con estado
- * OPEN o IN_PROGRESS. Bloquea la reversión a UNASSIGNED si ya hay
- * una prioridad asignada. La justificación es opcional.
+ * Formulario que permite a un ADMIN cambiar manualmente la prioridad de un
+ * ticket. Toda la lógica de validación y construcción del payload se delega
+ * en `priorityRules.ts`, manteniendo el componente con responsabilidad única:
+ * orquestar estado UI y llamar al servicio.
  */
 import { useState } from 'react';
 import { ticketApi } from '../../services/ticketApi';
 import { authService } from '../../services/auth';
 import type { Ticket, TicketPriority } from '../../types/ticket';
+import {
+  ASSIGNABLE_PRIORITY_OPTIONS,
+  canManagePriority,
+  hasAssignedPriority,
+  isValidPriorityTransition,
+  buildPriorityPayload,
+  resolvePriorityErrorMessage,
+} from './priorityRules';
 
 interface TicketPriorityManagerProps {
+  /** Ticket cuya prioridad se va a gestionar. */
   ticket: Ticket;
+  /** Callback invocado con el ticket actualizado tras una operación exitosa. */
   onUpdate: (updated: Ticket) => void;
 }
 
-/** Opciones de prioridad asignables (excluye UNASSIGNED). */
-const PRIORITY_OPTIONS: { value: TicketPriority; label: string }[] = [
-  { value: 'LOW',    label: 'Low'    },
-  { value: 'MEDIUM', label: 'Medium' },
-  { value: 'HIGH',   label: 'High'   },
-];
-
-const EDITABLE_STATUSES: Ticket['status'][] = ['OPEN', 'IN_PROGRESS'];
-
 /**
  * Gestión manual de prioridad por Administrador.
- * Solo visible para ADMIN en tickets con estado OPEN o IN_PROGRESS.
- *
- * @param ticket   - Ticket actual
- * @param onUpdate - Callback invocado con el ticket actualizado tras éxito
+ * Renderiza null para usuarios sin rol ADMIN o tickets en estado CLOSED.
  */
 const TicketPriorityManager = ({ ticket, onUpdate }: TicketPriorityManagerProps) => {
-  const currentUser = authService.getCurrentUser();
+  const currentUser   = authService.getCurrentUser();
+  const ticketHasPriority = hasAssignedPriority(ticket);
 
-  const canManage =
-    currentUser?.role === 'ADMIN' &&
-    EDITABLE_STATUSES.includes(ticket.status);
-
-  // ¿Ya existe una prioridad distinta de UNASSIGNED? Bloquea reversión.
-  const hasAssignedPriority =
-    ticket.priority !== undefined && ticket.priority !== 'UNASSIGNED';
-
-  // Estado del formulario — hooks siempre antes del return condicional.
+  // Hooks siempre antes del return condicional (regla de hooks de React).
   const [selectedPriority, setSelectedPriority] = useState<string>(
-    hasAssignedPriority ? (ticket.priority as string) : ''
+    ticketHasPriority ? (ticket.priority as string) : '',
   );
   const [justification, setJustification] = useState('');
-  const [apiError, setApiError]             = useState<string | null>(null);
-  const [saving, setSaving]                 = useState(false);
+  const [apiError, setApiError]           = useState<string | null>(null);
+  const [saving, setSaving]               = useState(false);
 
-  if (!canManage) return null;
+  if (!canManagePriority(currentUser, ticket)) return null;
 
-  /**
-   * Envía el cambio de prioridad al backend.
-   * Bloquea si el valor seleccionado es UNASSIGNED cuando ya hay prioridad.
-   */
+  /** Envía el cambio al backend si la transición es válida. */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Regla de negocio: no permitir revertir a UNASSIGNED si ya hay prioridad.
-    if (hasAssignedPriority && selectedPriority === 'UNASSIGNED') return;
+    if (!isValidPriorityTransition(ticket, selectedPriority)) return;
 
-    // Sin selección válida, no hay nada que guardar.
-    if (!selectedPriority || selectedPriority === 'UNASSIGNED') return;
-
-    const payload: { priority: TicketPriority; justification?: string } = {
-      priority: selectedPriority as TicketPriority,
-    };
-    if (justification.trim()) {
-      payload.justification = justification.trim();
-    }
+    const payload = buildPriorityPayload(
+      selectedPriority as TicketPriority,
+      justification,
+    );
 
     setSaving(true);
     setApiError(null);
@@ -80,12 +63,7 @@ const TicketPriorityManager = ({ ticket, onUpdate }: TicketPriorityManagerProps)
       onUpdate(updated);
       setJustification('');
     } catch (err) {
-      const status = (err as { response?: { status: number } })?.response?.status;
-      const message =
-        status === 403
-          ? 'No tienes permiso para cambiar la prioridad.'
-          : 'No se pudo actualizar la prioridad. Intenta de nuevo.';
-      setApiError(message);
+      setApiError(resolvePriorityErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -100,12 +78,12 @@ const TicketPriorityManager = ({ ticket, onUpdate }: TicketPriorityManagerProps)
           value={selectedPriority}
           onChange={(e) => setSelectedPriority(e.target.value)}
         >
-          {!hasAssignedPriority && (
+          {!ticketHasPriority && (
             <option value="" disabled>
               Seleccionar prioridad
             </option>
           )}
-          {PRIORITY_OPTIONS.map((opt) => (
+          {ASSIGNABLE_PRIORITY_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>
