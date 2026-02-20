@@ -536,7 +536,7 @@ class TestCompleteTicketWorkflow(TestCase):
             event_publisher=self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand(title="Priority Workflow", description="Integration test")
+            CreateTicketCommand(title="Priority Workflow", description="Integration test", user_id="1")
         )
 
         # 2. Cambiar prioridad
@@ -582,7 +582,7 @@ class TestCompleteTicketWorkflow(TestCase):
             event_publisher=self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand(title="Close Then Priority", description="Test")
+            CreateTicketCommand(title="Close Then Priority", description="Test", user_id="1")
         )
 
         # 2. Cerrar ticket: OPEN → IN_PROGRESS → CLOSED
@@ -619,7 +619,7 @@ class TestCompleteTicketWorkflow(TestCase):
             event_publisher=self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand(title="Non Admin Priority", description="Test")
+            CreateTicketCommand(title="Non Admin Priority", description="Test", user_id="1")
         )
 
         # 2. Intentar cambiar prioridad con rol "Usuario"
@@ -646,7 +646,7 @@ class TestCompleteTicketWorkflow(TestCase):
             event_publisher=self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand(title="Revert Priority", description="Test")
+            CreateTicketCommand(title="Revert Priority", description="Test", user_id="1")
         )
 
         # 2. Asignar prioridad High
@@ -679,7 +679,7 @@ class TestCompleteTicketWorkflow(TestCase):
             event_publisher=self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand(title="Idempotent Priority", description="Test")
+            CreateTicketCommand(title="Idempotent Priority", description="Test", user_id="1")
         )
 
         # 2. Cambiar prioridad a High (primera vez)
