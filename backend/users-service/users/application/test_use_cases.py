@@ -8,7 +8,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from users.application.use_cases import RegisterUserCommand, RegisterUserUseCase
+from users.application.use_cases import (
+    GetUsersByRoleCommand,
+    GetUsersByRoleUseCase,
+    RegisterUserCommand,
+    RegisterUserUseCase,
+)
 from users.domain.entities import User, UserRole
 from users.domain.exceptions import UserAlreadyExists
 from users.domain.factories import UserFactory
@@ -118,3 +123,19 @@ class TestRegisterUserUseCase:
         self.mock_event_publisher.publish.assert_called_once()
         call_args = self.mock_event_publisher.publish.call_args
         assert call_args[0][1] == "user.created"
+
+
+class TestGetUsersByRoleUseCase:
+    """Tests para GetUsersByRoleUseCase."""
+
+    def test_execute_returns_empty_list_when_role_missing(self) -> None:
+        """Si el rol no viene, no debe fallar y retorna lista vacia."""
+        mock_repository = MagicMock()
+        use_case = GetUsersByRoleUseCase(repository=mock_repository)
+
+        command = GetUsersByRoleCommand(role=None)
+
+        result = use_case.execute(command)
+
+        assert result == []
+        mock_repository.find_by_role.assert_not_called()

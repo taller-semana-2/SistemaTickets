@@ -4,11 +4,15 @@ Verifica que el endpoint POST /api/auth/ NO permite escalamiento de privilegios.
 """
 
 import pytest
+import uuid
 from rest_framework import status
 from rest_framework.test import APIClient
 from unittest.mock import patch
 
+from users.domain.entities import UserRole
+from users.domain.factories import UserFactory
 from users.infrastructure.event_publisher import RabbitMQEventPublisher
+from users.infrastructure.repository import DjangoUserRepository
 
 
 @pytest.mark.django_db
@@ -91,3 +95,39 @@ class TestRegistrationEndpoint:
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_by_role_admin_returns_users(self) -> None:
+        """GET /api/auth/by-role/ADMIN/ retorna lista de admins con JWT válido."""
+        repository = DjangoUserRepository()
+        factory = UserFactory()
+        unique_suffix = uuid.uuid4().hex
+        admin_user = factory.create(
+            email=f"admin_{unique_suffix}@test.com",
+            username=f"admin_{unique_suffix}",
+            password="password123",
+            role=UserRole.ADMIN,
+        )
+        repository.save(admin_user)
+
+        login_response = self.client.post(
+            "/api/auth/login/",
+            {
+                "email": admin_user.email,
+                "password": "password123",
+            },
+            format="json",
+        )
+
+        assert login_response.status_code == status.HTTP_200_OK
+        access_token = login_response.data["tokens"]["access"]
+
+        response = self.client.get(
+            "/api/auth/by-role/ADMIN/",
+            HTTP_AUTHORIZATION=f"Bearer {access_token}",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert any(
+            user["email"] == admin_user.email and user["role"] == "ADMIN"
+            for user in response.data
+        )

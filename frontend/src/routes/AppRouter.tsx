@@ -10,6 +10,7 @@ import AssignmentList from '../pages/assignments/AssignmentList';
 import Login from '../pages/auth/Login';
 import Register from '../pages/auth/Register';
 import ProtectedRoute from '../components/ProtectedRoute';
+import { authService } from '../services/auth';
 
 /**
  * Monta la conexión SSE global para actualizar el badge de notificaciones.
@@ -27,12 +28,14 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   // useMatch devuelve un objeto si la ruta actual coincide con el patrón.
   const isTicketDetail = Boolean(useMatch('/tickets/:id'));
+  const isAuthenticated = authService.isAuthenticated();
+  const showProtectedUI = !isAuthPage && isAuthenticated;
 
   return (
     <>
-      {!isAuthPage && <Navbar />}
+      {showProtectedUI && <Navbar />}
       {/* SSE global: solo en rutas autenticadas que no sean TicketDetail */}
-      {!isAuthPage && !isTicketDetail && <SSEGlobalListener />}
+      {showProtectedUI && !isTicketDetail && <SSEGlobalListener />}
       {children}
     </>
   );

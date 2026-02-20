@@ -14,6 +14,7 @@ const Navbar = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const loadUnreadCount = useCallback(async () => {
+    if (!authService.isAuthenticated()) return;
     try {
       const notifications = await notificationsApi.getNotifications();
       const unread = notifications.filter((n) => !n.read).length;

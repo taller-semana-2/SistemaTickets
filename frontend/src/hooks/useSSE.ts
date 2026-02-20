@@ -103,18 +103,24 @@ export const useSSE = (options?: UseSSEOptions): void => {
   }, []);
 
   useEffect(() => {
+    if (!authService.isAuthenticated()) return;
+
+    let intentionalClose = false;
+
     const sseEndpoint = buildSSEEndpoint();
     const es = new EventSource(sseEndpoint);
 
     es.addEventListener('notification', handleNotification);
 
-    es.onerror = (err: Event) => {
-      // EventSource maneja la reconexión automáticamente.
-      // Solo registramos el error para visibilidad de diagnóstico.
-      console.error('[SSE] Error de conexión — se reintentará automáticamente:', err);
+    es.onerror = () => {
+      if (intentionalClose) return;
+      // En desarrollo (WSGI) las desconexiones son esperadas; solo registramos
+      // como debug para no contaminar la consola.
+      console.debug('[SSE] Evento de error — readyState:', es.readyState);
     };
 
     return () => {
+      intentionalClose = true;
       es.close();
     };
   }, [handleNotification]);

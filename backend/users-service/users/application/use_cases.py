@@ -478,11 +478,18 @@ class GetUsersByRoleUseCase:
         Returns:
             Lista de usuarios con el rol especificado
         """
-        # Validar que el rol sea válido
-        try:
-            role = UserRole[command.role.upper()]
-        except KeyError:
-            return []
+        # Validar que el rol sea válido y no venga vacío
+        role_value = command.role
+        if isinstance(role_value, UserRole):
+            role = role_value
+        else:
+            role_text = str(role_value).strip().upper()
+            if not role_text:
+                return []
+            try:
+                role = UserRole[role_text]
+            except KeyError:
+                return []
         
         # Obtener usuarios por rol
         return self.repository.find_by_role(role)
