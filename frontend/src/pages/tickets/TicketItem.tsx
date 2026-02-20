@@ -25,7 +25,10 @@ const STATUS_ORDER: Ticket['status'][] = [
 const TicketItem = ({ ticket, onDelete, onUpdateStatus, onUpdatePriority }: Props) => {
   const navigate = useNavigate();
   const currentUser = authService.getCurrentUser();
+  const isAdmin = currentUser?.role === 'ADMIN';
   const isAdminEditable = canManagePriority(currentUser, ticket);
+  const isClosed = ticket.status === 'CLOSED';
+  const canChangeStatus = isAdmin && !isClosed;
 
   const getNextStatus = () => {
     const currentIndex = STATUS_ORDER.indexOf(ticket.status);
@@ -34,6 +37,7 @@ const TicketItem = ({ ticket, onDelete, onUpdateStatus, onUpdatePriority }: Prop
 
   const handleStatusClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!canChangeStatus) return;
     const nextStatus = getNextStatus();
     onUpdateStatus(ticket.id, nextStatus);
   };
@@ -75,12 +79,11 @@ const TicketItem = ({ ticket, onDelete, onUpdateStatus, onUpdatePriority }: Prop
       </div>
 
       <div className="ticket-footer">
-        {/* Badge clickeable */}
         <span
-          className={`status-badge ${ticket.status.toLowerCase()}`}
-          onClick={handleStatusClick}
-          title="Cambiar estado"
-          style={{ cursor: 'pointer' }}
+          className={`status-badge ${ticket.status.toLowerCase()}${canChangeStatus ? ' status-badge--clickable' : ''}`}
+          onClick={canChangeStatus ? handleStatusClick : (e) => e.stopPropagation()}
+          title={canChangeStatus ? 'Cambiar estado' : ticket.status}
+          style={{ cursor: canChangeStatus ? 'pointer' : 'default' }}
         >
           {ticket.status}
         </span>
