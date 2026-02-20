@@ -55,6 +55,9 @@ class Ticket:
         PRIORITY_HIGH
     ]
     
+    # Longitud máxima permitida para la justificación de cambio de prioridad
+    MAX_JUSTIFICATION_LENGTH = 255
+    
     # Atributos de la entidad
     id: Optional[int]
     title: str
@@ -196,6 +199,22 @@ class Ticket:
                 "no se puede volver a Unassigned una vez asignada otra prioridad"
             )
     
+    def _validate_justification_length(self, justification: Optional[str]) -> None:
+        """
+        Valida que la justificación no exceda la longitud máxima permitida.
+        
+        Args:
+            justification: Justificación a validar
+            
+        Raises:
+            ValueError: Si la justificación excede MAX_JUSTIFICATION_LENGTH caracteres
+        """
+        if justification and len(justification) > self.MAX_JUSTIFICATION_LENGTH:
+            raise ValueError(
+                f"La justificación excede la longitud máxima de "
+                f"{self.MAX_JUSTIFICATION_LENGTH} caracteres"
+            )
+    
     def change_priority(self, new_priority: str, justification: Optional[str] = None) -> None:
         """
         Cambia la prioridad del ticket aplicando reglas de negocio.
@@ -230,6 +249,9 @@ class Ticket:
         
         # Validar que la nueva prioridad sea válida
         self._validate_priority_value(new_priority)
+        
+        # Validar longitud de la justificación
+        self._validate_justification_length(justification)
         
         # Idempotencia: Si la prioridad es la misma, no hacer nada
         if self.priority == new_priority:
