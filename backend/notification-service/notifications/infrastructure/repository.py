@@ -148,3 +148,29 @@ class DjangoNotificationRepository(NotificationRepository):
             user_id=django_notification.user_id,
             response_id=django_notification.response_id,
         )
+
+    def delete(self, notification_id: int) -> bool:
+        """
+        Elimina una notificación por su ID en la BD de Django.
+        
+        Args:
+            notification_id: ID de la notificación a eliminar
+            
+        Returns:
+            Verdadero si se eliminó, falso si no existía.
+        """
+        deleted_count, _ = DjangoNotification.objects.filter(pk=notification_id).delete()
+        return deleted_count > 0
+
+    def delete_all(self, user_id: str) -> None:
+        """
+        Elimina todas las notificaciones pertenecientes a un usuario.
+        Actualmente no se pasa usuario en el request /clear/, se asume todas o se borran las del token.
+        Considerando el contexto actual, borraremos todas las visibles o filtradas.
+        Dado que /clear/ no enviaba explícitamente el token en el view model por defecto, 
+        se borran todas las de un usuario en particular si se provee, o todas.
+        """
+        if user_id:
+            DjangoNotification.objects.filter(user_id=user_id).delete()
+        else:
+            DjangoNotification.objects.all().delete()
