@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { ticketApi } from '../../services/ticketApi';
 import { authService } from '../../services/auth';
 import { LoadingState } from '../../components/common';
-import { formatDate, sortByDateAsc } from '../../utils/dateFormat';
+import { formatDate } from '../../utils/dateFormat';
 import type { Ticket, TicketResponse } from '../../types/ticket';
+import { useTicketDetail } from './useTicketDetail';
+import AdminResponseForm from './AdminResponseForm';
 import './TicketDetail.css';
 
 // ---------------------------------------------------------------------------
@@ -59,40 +59,31 @@ const canUserViewResponses = (ticket: Ticket): boolean => {
 };
 
 // ---------------------------------------------------------------------------
+// AdminPanel — decide si mostrar el formulario o el aviso de ticket cerrado
+// ---------------------------------------------------------------------------
+
+interface AdminPanelProps {
+  ticketId: number;
+  isClosed: boolean;
+  onResponseCreated: (response: TicketResponse) => void;
+}
+
+const AdminPanel = ({ ticketId, isClosed, onResponseCreated }: AdminPanelProps) =>
+  isClosed ? (
+    <div className="ticket-closed-notice">
+      <p>Ticket cerrado — no se pueden añadir más respuestas</p>
+    </div>
+  ) : (
+    <AdminResponseForm ticketId={ticketId} onResponseCreated={onResponseCreated} />
+  );
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
 const TicketDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [responses, setResponses] = useState<TicketResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!id) return;
-
-    const ticketId = Number(id);
-
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [ticketData, responsesData] = await Promise.all([
-          ticketApi.getTicket(ticketId),
-          ticketApi.getResponses(ticketId),
-        ]);
-        setTicket(ticketData);
-        setResponses(sortByDateAsc(responsesData, 'created_at'));
-      } catch (err) {
-        console.error('Error loading ticket detail:', err);
-        setError('No se pudo cargar el ticket');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [id]);
+  const { ticket, responses, loading, error, appendResponse } = useTicketDetail(id);
 
   if (loading) {
     return <LoadingState message="Cargando ticket..." />;
@@ -103,6 +94,7 @@ const TicketDetail = () => {
   }
 
   const hasAccess = canUserViewResponses(ticket);
+  const isAdmin = authService.isAdmin();
 
   return (
     <div className="ticket-detail-container">
@@ -128,6 +120,14 @@ const TicketDetail = () => {
         <div className="access-restricted">
           <p>Acceso restringido</p>
         </div>
+      )}
+
+      {isAdmin && (
+        <AdminPanel
+          ticketId={ticket.id}
+          isClosed={ticket.status === 'CLOSED'}
+          onResponseCreated={appendResponse}
+        />
       )}
     </div>
   );

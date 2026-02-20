@@ -53,4 +53,16 @@ export const ticketApi = {
     );
     return data;
   },
+
+  /**
+   * Crear una respuesta de administrador a un ticket.
+   * POST /tickets/:id/responses/
+   */
+  createResponse: async (ticketId: number, text: string): Promise<TicketResponse> => {
+    const { data } = await ticketApiClient.post<TicketResponse>(
+      `/tickets/${ticketId}/responses/`,
+      { text }
+    );
+    return data;
+  },
 };
