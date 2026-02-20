@@ -129,6 +129,96 @@ class TestDjangoTicketRepository(TestCase):
         # No debe lanzar excepción
         self.repository.delete(999999)
 
+    # ========== Phase 2: Repository Priority Mapping (RED) ==========
+
+    def test_save_new_ticket_persists_priority(self):
+        """save() persiste priority al crear un ticket nuevo."""
+        domain_ticket = DomainTicket(
+            id=None, title="T", description="D", status="OPEN",
+            user_id="user1", created_at=datetime.now(), priority="High"
+        )
+        saved = self.repository.save(domain_ticket)
+        django_ticket = DjangoTicket.objects.get(pk=saved.id)
+        assert django_ticket.priority == "High"
+
+    def test_save_new_ticket_persists_priority_justification(self):
+        """save() persiste priority_justification al crear un ticket nuevo."""
+        domain_ticket = DomainTicket(
+            id=None, title="T", description="D", status="OPEN",
+            user_id="user1", created_at=datetime.now(),
+            priority="High", priority_justification="Urgente"
+        )
+        saved = self.repository.save(domain_ticket)
+        django_ticket = DjangoTicket.objects.get(pk=saved.id)
+        assert django_ticket.priority_justification == "Urgente"
+
+    def test_save_existing_ticket_updates_priority(self):
+        """save() actualiza priority en un ticket existente."""
+        django_ticket = DjangoTicket.objects.create(
+            title="T", description="D", status="OPEN", priority="Unassigned"
+        )
+        domain_ticket = DomainTicket(
+            id=django_ticket.id, title="T", description="D", status="OPEN",
+            user_id="", created_at=django_ticket.created_at, priority="Medium"
+        )
+        self.repository.save(domain_ticket)
+        django_ticket.refresh_from_db()
+        assert django_ticket.priority == "Medium"
+
+    def test_save_existing_ticket_updates_priority_justification(self):
+        """save() actualiza priority_justification en un ticket existente."""
+        django_ticket = DjangoTicket.objects.create(
+            title="T", description="D", status="OPEN"
+        )
+        domain_ticket = DomainTicket(
+            id=django_ticket.id, title="T", description="D", status="OPEN",
+            user_id="", created_at=django_ticket.created_at,
+            priority="High", priority_justification="Razón actualizada"
+        )
+        self.repository.save(domain_ticket)
+        django_ticket.refresh_from_db()
+        assert django_ticket.priority_justification == "Razón actualizada"
+
+    def test_find_by_id_maps_priority_to_domain(self):
+        """find_by_id retorna entidad de dominio con priority correcta."""
+        django_ticket = DjangoTicket.objects.create(
+            title="T", description="D", status="OPEN", priority="Medium"
+        )
+        domain_ticket = self.repository.find_by_id(django_ticket.id)
+        assert domain_ticket.priority == "Medium"
+
+    def test_find_by_id_maps_priority_justification_to_domain(self):
+        """find_by_id retorna entidad de dominio con priority_justification correcta."""
+        django_ticket = DjangoTicket.objects.create(
+            title="T", description="D", status="OPEN",
+            priority="High", priority_justification="Motivo"
+        )
+        domain_ticket = self.repository.find_by_id(django_ticket.id)
+        assert domain_ticket.priority_justification == "Motivo"
+
+    def test_to_django_model_maps_priority_from_domain(self):
+        """to_django_model con ticket existente mapea priority correctamente."""
+        django_ticket = DjangoTicket.objects.create(
+            title="T", description="D", status="OPEN", priority="Unassigned"
+        )
+        domain_ticket = DomainTicket(
+            id=django_ticket.id, title="T", description="D", status="OPEN",
+            user_id="", created_at=django_ticket.created_at, priority="High"
+        )
+        result = self.repository.to_django_model(domain_ticket)
+        assert result.priority == "High"
+
+    def test_to_django_model_without_id_maps_priority(self):
+        """to_django_model sin ID mapea priority y priority_justification."""
+        domain_ticket = DomainTicket(
+            id=None, title="T", description="D", status="OPEN",
+            user_id="user1", created_at=datetime.now(),
+            priority="Low", priority_justification="Razón"
+        )
+        result = self.repository.to_django_model(domain_ticket)
+        assert result.priority == "Low"
+        assert result.priority_justification == "Razón"
+
 
 class TestRabbitMQEventPublisher(TestCase):
     """Tests del publicador de eventos RabbitMQ."""
