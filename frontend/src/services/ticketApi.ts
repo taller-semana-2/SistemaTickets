@@ -26,6 +26,14 @@ export const ticketApi = {
   },
 
   /**
+   * Obtener un ticket por id
+   */
+  getTicket: async (id: number): Promise<Ticket> => {
+    const { data } = await ticketApiClient.get<Ticket>(`/tickets/${id}/`);
+    return data;
+  },
+
+  /**
    * Actualizar el estado de un ticket
    */
   updateStatus: async (id: number, status: string): Promise<Ticket> => {

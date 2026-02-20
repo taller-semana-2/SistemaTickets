@@ -9,6 +9,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import TicketDetail from '../../pages/tickets/TicketDetail';
 import * as ticketApiModule from '../../services/ticketApi';
+import type { TicketPriority } from '../../types/ticket';
 
 // ---------------------------------------------------------------------------
 // Mock ticketApi completo — getTicket aún no existe en producción
@@ -26,7 +27,7 @@ vi.mock('../../services/ticketApi', () => ({
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
-const makeTicket = (priority?: string) => ({
+const makeTicket = (priority?: TicketPriority) => ({
   id: 7,
   title: 'Fallo en login',
   description: 'El usuario no puede iniciar sesión después del deploy',

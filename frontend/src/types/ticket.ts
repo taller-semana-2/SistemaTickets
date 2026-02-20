@@ -1,5 +1,7 @@
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
 
+export type TicketPriority = 'UNASSIGNED' | 'LOW' | 'MEDIUM' | 'HIGH';
+
 export interface Ticket {
   id: number;
   title: string;
@@ -7,6 +9,8 @@ export interface Ticket {
   status: TicketStatus;
   user_id: string;
   created_at: string;
+  priority?: TicketPriority;
+  priority_justification?: string | null;
 }
 
 export interface CreateTicketDTO {

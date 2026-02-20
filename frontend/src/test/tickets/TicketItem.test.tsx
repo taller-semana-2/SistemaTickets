@@ -7,7 +7,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import TicketItem from '../../pages/tickets/TicketItem';
-import type { Ticket } from '../../types/ticket';
+import type { Ticket, TicketPriority } from '../../types/ticket';
 
 /** Ticket base sin prioridad (campo ausente) */
 const baseTicket: Ticket = {
@@ -36,14 +36,11 @@ describe('TicketItem – visualización de prioridad (HU-1.2)', () => {
   });
 
   it('muestra "High" cuando priority === "HIGH"', () => {
-    const ticketWithPriority = {
-      ...baseTicket,
-      priority: 'HIGH',
-    } as Ticket & { priority: string };
+    const ticketWithPriority: Ticket = { ...baseTicket, priority: 'HIGH' as TicketPriority };
 
     render(
       <TicketItem
-        ticket={ticketWithPriority as unknown as Ticket}
+        ticket={ticketWithPriority}
         onDelete={noop}
         onUpdateStatus={noop}
       />
@@ -53,14 +50,11 @@ describe('TicketItem – visualización de prioridad (HU-1.2)', () => {
   });
 
   it('muestra "Low" cuando priority === "LOW"', () => {
-    const ticketWithPriority = {
-      ...baseTicket,
-      priority: 'LOW',
-    } as Ticket & { priority: string };
+    const ticketWithPriority: Ticket = { ...baseTicket, priority: 'LOW' as TicketPriority };
 
     render(
       <TicketItem
-        ticket={ticketWithPriority as unknown as Ticket}
+        ticket={ticketWithPriority}
         onDelete={noop}
         onUpdateStatus={noop}
       />
@@ -70,14 +64,11 @@ describe('TicketItem – visualización de prioridad (HU-1.2)', () => {
   });
 
   it('muestra "Medium" cuando priority === "MEDIUM"', () => {
-    const ticketWithPriority = {
-      ...baseTicket,
-      priority: 'MEDIUM',
-    } as Ticket & { priority: string };
+    const ticketWithPriority: Ticket = { ...baseTicket, priority: 'MEDIUM' as TicketPriority };
 
     render(
       <TicketItem
-        ticket={ticketWithPriority as unknown as Ticket}
+        ticket={ticketWithPriority}
         onDelete={noop}
         onUpdateStatus={noop}
       />
@@ -87,14 +78,11 @@ describe('TicketItem – visualización de prioridad (HU-1.2)', () => {
   });
 
   it('muestra "Unassigned" cuando priority === "UNASSIGNED"', () => {
-    const ticketWithPriority = {
-      ...baseTicket,
-      priority: 'UNASSIGNED',
-    } as Ticket & { priority: string };
+    const ticketWithPriority: Ticket = { ...baseTicket, priority: 'UNASSIGNED' as TicketPriority };
 
     render(
       <TicketItem
-        ticket={ticketWithPriority as unknown as Ticket}
+        ticket={ticketWithPriority}
         onDelete={noop}
         onUpdateStatus={noop}
       />
