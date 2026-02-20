@@ -224,7 +224,6 @@ class AuthViewSet(viewsets.ViewSet):
                 email=serializer.validated_data['email'],
                 username=serializer.validated_data['username'],
                 password=serializer.validated_data['password'],
-                role=serializer.validated_data.get('role', 'USER')
             )
             
             use_case = RegisterUserUseCase(

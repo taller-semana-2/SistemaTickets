@@ -42,15 +42,15 @@ from rest_framework import serializers
 
 
 class RegisterUserSerializer(serializers.Serializer):
-    """Serializer para registrar un nuevo usuario (INPUT)"""
+    """Serializer para registrar un nuevo usuario (INPUT).
+    
+    SEGURIDAD: No se acepta campo 'role'. Todo registro público
+    crea usuarios con rol USER. El rol solo puede ser asignado
+    por un administrador autenticado.
+    """
     email = serializers.EmailField(required=True)
     username = serializers.CharField(min_length=3, max_length=50, required=True)
     password = serializers.CharField(min_length=8, write_only=True, required=True)
-    role = serializers.ChoiceField(
-        choices=['ADMIN', 'USER'],
-        default='USER',
-        required=False
-    )
 
 
 class LoginSerializer(serializers.Serializer):
