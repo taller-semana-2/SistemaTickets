@@ -192,21 +192,45 @@ class TicketViewSet(viewsets.ModelViewSet):
             Response con lista de respuestas o la respuesta creada.
         """
         if request.method == "GET":
-            return self._list_responses(pk)
+            return self._list_responses(request, pk)
         return self._create_response(request, pk)
 
-    def _list_responses(self, ticket_id: str | None) -> Response:
+    def _list_responses(self, request, ticket_id: str | None) -> Response:
         """Lista respuestas de un ticket en orden cronológico ascendente.
 
-        Accede directamente al ORM para lecturas simples, siguiendo el
-        patrón ya establecido en ``my_tickets``.
+        Aplica control de visibilidad (HU-1.2): solo el creador del ticket
+        y los usuarios con rol ADMIN pueden leer las respuestas.
 
         Args:
+            request: Objeto HTTP de DRF.
             ticket_id: ID del ticket cuyas respuestas se listan.
 
         Returns:
-            Response 200 con lista serializada de respuestas.
+            Response 200 con lista serializada, o 403 si el acceso está
+            denegado, o 404 si el ticket no existe.
         """
+        # C4 — Validar visibilidad: solo creador del ticket o ADMIN
+        user_id: str = request.META.get("HTTP_X_USER_ID", "")
+        user_role: str = request.META.get("HTTP_X_USER_ROLE", "")
+
+        is_admin = user_role.upper() == "ADMIN"
+
+        if not is_admin:
+            # Verificar que el solicitante es el creador del ticket
+            try:
+                ticket = Ticket.objects.get(pk=ticket_id)
+            except Ticket.DoesNotExist:
+                return Response(
+                    {"error": f"Ticket {ticket_id} no encontrado"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if str(ticket.user_id) != str(user_id):
+                return Response(
+                    {"error": "No tienes permiso para ver las respuestas de este ticket"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         responses = TicketResponse.objects.filter(
             ticket_id=ticket_id,
         ).order_by("created_at")
