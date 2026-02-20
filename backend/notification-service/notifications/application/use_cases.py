@@ -4,11 +4,13 @@ Cada caso de uso representa una operación de negocio completa.
 """
 
 from dataclasses import dataclass
+from typing import Any, Optional
+from datetime import datetime
 
 from ..domain.entities import Notification
 from ..domain.repositories import NotificationRepository
 from ..domain.event_publisher import EventPublisher
-from ..domain.exceptions import NotificationNotFound
+from ..domain.exceptions import NotificationNotFound, InvalidEventSchema
 
 
 @dataclass
@@ -73,4 +75,73 @@ class MarkNotificationAsReadUseCase:
         for event in events:
             self.event_publisher.publish(event)
         
+        return notification
+
+
+@dataclass
+class CreateNotificationFromResponseCommand:
+    """Comando: Crear notificación a partir de un evento ticket.response_added."""
+    event_type: Any
+    ticket_id: Any
+    response_id: Any
+    admin_id: Any
+    response_text: Any
+    user_id: Any
+    timestamp: Any
+
+
+class CreateNotificationFromResponseUseCase:
+    """
+    Caso de uso: Crear notificación cuando un admin responde un ticket.
+
+    Responsabilidades:
+    1. Validar el schema del evento (campos obligatorios)
+    2. Crear la entidad Notification de dominio
+    3. Persistir la notificación mediante el repositorio
+    """
+
+    REQUIRED_FIELDS = ["ticket_id", "response_id", "admin_id", "response_text", "user_id", "timestamp"]
+
+    def __init__(self, repository: NotificationRepository):
+        """
+        Inyección de dependencias (DIP).
+
+        Args:
+            repository: Repositorio para persistencia de notificaciones
+        """
+        self.repository = repository
+
+    def execute(self, command: CreateNotificationFromResponseCommand) -> Notification:
+        """
+        Ejecuta la creación de notificación desde un evento de respuesta.
+
+        Args:
+            command: Comando con los datos del evento
+
+        Returns:
+            La notificación creada y persistida
+
+        Raises:
+            InvalidEventSchema: Si faltan campos obligatorios en el evento
+        """
+        # 1. Validar schema del evento
+        missing = [
+            field for field in self.REQUIRED_FIELDS
+            if getattr(command, field, None) is None
+        ]
+        if missing:
+            raise InvalidEventSchema(missing_fields=missing)
+
+        # 2. Crear entidad de dominio
+        notification = Notification(
+            id=None,
+            ticket_id=str(command.ticket_id),
+            message=f"Nueva respuesta en Ticket #{command.ticket_id}",
+            sent_at=datetime.now(),
+            read=False,
+        )
+
+        # 3. Persistir
+        notification = self.repository.save(notification)
+
         return notification
