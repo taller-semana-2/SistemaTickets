@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from .events import DomainEvent, TicketCreated, TicketStatusChanged, TicketPriorityChanged
-from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition, InvalidTicketStateTransition
+from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition, InvalidTicketStateTransition, EmptyResponseError
 
 
 @dataclass
@@ -227,6 +227,7 @@ class Ticket:
 
         Regla de negocio R7: Solo tickets en estado OPEN o IN_PROGRESS
         pueden recibir respuestas. Tickets en estado CLOSED son rechazados.
+        Regla de negocio R8: El texto de la respuesta es obligatorio.
 
         Args:
             text: Texto de la respuesta
@@ -234,8 +235,11 @@ class Ticket:
 
         Raises:
             TicketAlreadyClosed: Si el ticket está en estado CLOSED
+            EmptyResponseError: Si el texto está vacío o es None
         """
         self._validate_can_add_response()
+        if not text or not text.strip():
+            raise EmptyResponseError()
     
     def collect_domain_events(self) -> List[DomainEvent]:
         """
