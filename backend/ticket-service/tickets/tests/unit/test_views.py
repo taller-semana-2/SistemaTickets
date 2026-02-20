@@ -200,6 +200,43 @@ class TestTicketSerializer(TestCase):
         assert not serializer.is_valid()
         assert 'title' in serializer.errors
 
+    def test_serializer_includes_priority_in_response(self):
+        """RED-4.1: Al serializar un ticket con priority, el campo aparece en los datos de salida."""
+        ticket = DjangoTicket.objects.create(
+            title="Test Priority",
+            description="Descripción",
+            priority="High",
+        )
+        serializer = TicketSerializer(instance=ticket)
+        assert "priority" in serializer.data
+        assert serializer.data["priority"] == "High"
+
+    def test_serializer_includes_priority_justification_in_response(self):
+        """RED-4.2: Al serializar un ticket con justificación, el campo aparece en la salida."""
+        ticket = DjangoTicket.objects.create(
+            title="Test Justification",
+            description="Descripción",
+            priority="High",
+            priority_justification="Urgente",
+        )
+        serializer = TicketSerializer(instance=ticket)
+        assert "priority_justification" in serializer.data
+        assert serializer.data["priority_justification"] == "Urgente"
+
+    def test_serializer_ignores_priority_on_creation(self):
+        """RED-4.3: Al crear ticket vía POST, el campo priority en el body es ignorado."""
+        data = {"title": "Test", "description": "Descripción", "priority": "High", "user_id": "1"}
+        serializer = TicketSerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
+        assert "priority" not in serializer.validated_data
+
+    def test_serializer_ignores_priority_justification_on_creation(self):
+        """RED-4.4: Al crear ticket vía POST, el campo priority_justification en el body es ignorado."""
+        data = {"title": "Test", "description": "Descripción", "priority_justification": "Reason", "user_id": "1"}
+        serializer = TicketSerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
+        assert "priority_justification" not in serializer.validated_data
+
 
 class TestTicketModel(TestCase):
     """Tests del modelo Django (persistencia)."""
