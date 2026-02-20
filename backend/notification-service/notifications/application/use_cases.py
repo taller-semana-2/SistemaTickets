@@ -3,6 +3,7 @@ Use Cases (Comandos) - Casos de uso que orquestan operaciones de dominio.
 Cada caso de uso representa una operación de negocio completa.
 """
 
+import logging
 from dataclasses import dataclass
 from typing import Optional
 from datetime import datetime
@@ -11,6 +12,9 @@ from ..domain.entities import Notification
 from ..domain.repositories import NotificationRepository
 from ..domain.event_publisher import EventPublisher
 from ..domain.exceptions import NotificationNotFound, InvalidEventSchema
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -96,8 +100,9 @@ class CreateNotificationFromResponseUseCase:
 
     Responsabilidades:
     1. Validar el schema del evento (campos obligatorios)
-    2. Crear la entidad Notification de dominio
-    3. Persistir la notificación mediante el repositorio
+    2. Garantizar idempotencia mediante response_id (evita duplicados)
+    3. Crear la entidad Notification de dominio
+    4. Persistir la notificación mediante el repositorio
     """
 
     REQUIRED_FIELDS = ["ticket_id", "response_id", "admin_id", "response_text", "user_id", "timestamp"]
@@ -126,6 +131,7 @@ class CreateNotificationFromResponseUseCase:
             if getattr(command, field, None) is None
         ]
         if missing:
+            logger.warning("Schema inválido en evento ticket.response_added: campos faltantes=%s", missing)
             raise InvalidEventSchema(missing_fields=missing)
 
     def execute(self, command: CreateNotificationFromResponseCommand) -> Notification:
@@ -147,6 +153,7 @@ class CreateNotificationFromResponseUseCase:
         # 2. Idempotencia: verificar si ya existe notificación para este response_id
         existing = self.repository.find_by_response_id(command.response_id)
         if existing is not None:
+            logger.info("Idempotencia: notificación ya existe para response_id=%s, omitiendo creación", command.response_id)
             return existing
 
         # 3. Crear entidad de dominio
@@ -160,5 +167,6 @@ class CreateNotificationFromResponseUseCase:
 
         # 4. Persistir
         notification = self.repository.save(notification)
+        logger.info("Notificación creada para ticket_id=%s, response_id=%s", command.ticket_id, command.response_id)
 
         return notification

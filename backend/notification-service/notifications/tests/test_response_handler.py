@@ -3,7 +3,7 @@ Tests del handler de eventos ticket.response_added (Application layer).
 Prueban la creación de notificaciones a partir de eventos y validación de schema.
 
 Issue #45: feat: notification consumer with idempotency (EP21, EP22)
-TDD Phase: RED — Todos estos tests deben FALLAR porque el use case no existe aún.
+Cubre casos: schema validation, creación exitosa, e idempotencia por response_id.
 """
 
 import pytest
