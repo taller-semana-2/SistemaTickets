@@ -7,6 +7,7 @@ NO contienen lógica de negocio, NO acceden directamente al ORM.
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.db import transaction
 
 from .models import Ticket, TicketResponse
 from .serializer import TicketSerializer, TicketResponseSerializer
@@ -272,21 +273,45 @@ class TicketViewSet(viewsets.ModelViewSet):
             Response con lista de respuestas o la respuesta creada.
         """
         if request.method == "GET":
-            return self._list_responses(pk)
+            return self._list_responses(request, pk)
         return self._create_response(request, pk)
 
-    def _list_responses(self, ticket_id: str | None) -> Response:
+    def _list_responses(self, request, ticket_id: str | None) -> Response:
         """Lista respuestas de un ticket en orden cronológico ascendente.
 
-        Accede directamente al ORM para lecturas simples, siguiendo el
-        patrón ya establecido en ``my_tickets``.
+        Aplica control de visibilidad (HU-1.2): solo el creador del ticket
+        y los usuarios con rol ADMIN pueden leer las respuestas.
 
         Args:
+            request: Objeto HTTP de DRF.
             ticket_id: ID del ticket cuyas respuestas se listan.
 
         Returns:
-            Response 200 con lista serializada de respuestas.
+            Response 200 con lista serializada, o 403 si el acceso está
+            denegado, o 404 si el ticket no existe.
         """
+        # C4 — Validar visibilidad: solo creador del ticket o ADMIN
+        user_id: str = request.META.get("HTTP_X_USER_ID", "")
+        user_role: str = request.META.get("HTTP_X_USER_ROLE", "")
+
+        is_admin = user_role.upper() == "ADMIN"
+
+        if not is_admin:
+            # Verificar que el solicitante es el creador del ticket
+            try:
+                ticket = Ticket.objects.get(pk=ticket_id)
+            except Ticket.DoesNotExist:
+                return Response(
+                    {"error": f"Ticket {ticket_id} no encontrado"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if str(ticket.user_id) != str(user_id):
+                return Response(
+                    {"error": "No tienes permiso para ver las respuestas de este ticket"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         responses = TicketResponse.objects.filter(
             ticket_id=ticket_id,
         ).order_by("created_at")
@@ -297,29 +322,31 @@ class TicketViewSet(viewsets.ModelViewSet):
         """Crea una respuesta de administrador delegando al caso de uso.
 
         Flujo:
-        1. Valida entrada con ``TicketResponseSerializer``.
-        2. Ejecuta ``AddTicketResponseUseCase`` (reglas de dominio + evento).
-        3. Persiste ``TicketResponse`` en el modelo Django.
-        4. Retorna la respuesta creada.
-
-        Note:
-            El evento ``TicketResponseAdded`` se publica dentro del caso de
-            uso con ``response_id=0`` porque el ID real solo existe tras la
-            persistencia del modelo Django.  Esto es una limitación conocida:
-            el dominio no debe depender de infraestructura, por lo que el
-            response_id real no puede inyectarse sin refactorizar el caso de
-            uso.  Se registra como deuda técnica para resolución futura.
+        1. Valida que el solicitante tiene rol ADMIN (cabecera X-User-Role).
+        2. Valida entrada con ``TicketResponseSerializer``.
+        3. Ejecuta ``AddTicketResponseUseCase`` (reglas de dominio + evento).
+        4. Persiste ``TicketResponse`` en el modelo Django.
+        5. Retorna la respuesta creada.
 
         Args:
             request: Objeto HTTP de DRF con ``text`` y ``admin_id``.
             ticket_id: ID del ticket al que se agrega la respuesta.
 
         Returns:
-            Response 201 con la respuesta creada, o 400 ante error de dominio.
+            Response 201 con la respuesta creada, 403 si no es ADMIN,
+            o 400 ante error de dominio.
 
         Raises:
             No lanza excepciones; todas se traducen a respuestas HTTP.
         """
+        # C2 — Validar que el solicitante es ADMIN
+        user_role: str = request.META.get("HTTP_X_USER_ROLE", "")
+        if user_role.upper() != "ADMIN":
+            return Response(
+                {"error": "Solo los administradores pueden responder tickets"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = TicketResponseSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -328,21 +355,26 @@ class TicketViewSet(viewsets.ModelViewSet):
         text: str = serializer.validated_data["text"]
 
         try:
-            command = AddTicketResponseCommand(
-                ticket_id=int(ticket_id),
-                text=text,
-                admin_id=admin_id,
-            )
-            self.add_response_use_case.execute(command)
+            with transaction.atomic():
+                # C5 / B3 — Persistir primero para obtener el response_id real
+                # que se incluirá en el evento ticket.response_added.
+                ticket = Ticket.objects.get(pk=ticket_id)
+                response_obj = TicketResponse.objects.create(
+                    ticket=ticket,
+                    admin_id=admin_id,
+                    text=text,
+                )
 
-            # Persistir en modelo Django (el caso de uso opera sobre entidades
-            # de dominio; la capa de infraestructura ORM vive aquí).
-            ticket = Ticket.objects.get(pk=ticket_id)
-            response_obj = TicketResponse.objects.create(
-                ticket=ticket,
-                admin_id=admin_id,
-                text=text,
-            )
+                # Ejecutar caso de uso con el response_id ya conocido.
+                # Si el dominio rechaza la operación, la transacción hace
+                # rollback y el registro ORM se elimina automáticamente.
+                command = AddTicketResponseCommand(
+                    ticket_id=int(ticket_id),
+                    text=text,
+                    admin_id=admin_id,
+                    response_id=response_obj.id,
+                )
+                self.add_response_use_case.execute(command)
 
             output_serializer = TicketResponseSerializer(response_obj)
             return Response(output_serializer.data, status=status.HTTP_201_CREATED)

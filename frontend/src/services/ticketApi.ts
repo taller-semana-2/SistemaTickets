@@ -57,11 +57,17 @@ export const ticketApi = {
   /**
    * Crear una respuesta de administrador a un ticket.
    * POST /tickets/:id/responses/
+   * Incluye admin_id desde la sesión activa para respetar el contrato del
+   * serializer del backend (`admin_id` requerido).
    */
   createResponse: async (ticketId: number, text: string): Promise<TicketResponse> => {
+    // El admin_id viene de la sesión activa; el backend también lo recibe
+    // vía cabecera X-User-Id pero el serializer lo espera en el cuerpo.
+    const raw = localStorage.getItem('ticketSystem_user');
+    const adminId: string = raw ? (JSON.parse(raw) as { id?: string }).id ?? '' : '';
     const { data } = await ticketApiClient.post<TicketResponse>(
       `/tickets/${ticketId}/responses/`,
-      { text }
+      { text, admin_id: adminId }
     );
     return data;
   },

@@ -234,6 +234,7 @@ class AddTicketResponseCommand:
     ticket_id: int
     text: str
     admin_id: str
+    response_id: int = 0  # Inyectado desde la capa de infraestructura tras persistir
 
 
 class AddTicketResponseUseCase:
@@ -289,11 +290,11 @@ class AddTicketResponseUseCase:
         # 3. Persistir el cambio
         self.repository.save(ticket)
 
-        # 4. Generar y publicar evento de dominio
+        # 4. Generar y publicar evento de dominio con el response_id real
         event = TicketResponseAdded(
             occurred_at=datetime.now(),
             ticket_id=ticket.id,
-            response_id=0,
+            response_id=command.response_id,
             admin_id=command.admin_id,
             response_text=command.text,
             user_id=ticket.user_id,
