@@ -791,6 +791,9 @@ class TestChangeTicketPriorityUseCase:
         # La prioridad debe permanecer sin cambios
         assert existing_ticket.priority == "Low"
 
+        # Assert — repository looked up by correct ID
+        mock_repo.find_by_id.assert_called_once_with(15)
+
         # No debe persistir ni publicar eventos
         mock_repo.save.assert_not_called()
         mock_publisher.publish.assert_not_called()
