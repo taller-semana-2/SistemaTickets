@@ -53,3 +53,26 @@
   50% { opacity: 1; }
   100% { opacity: 0.5; }
 }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem 4%;
+  }
+
+  .list-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .tickets-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .tickets-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1.5rem;
+  }
+}

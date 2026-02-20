@@ -194,3 +194,28 @@
 .delete-button .icon {
   font-size: 1rem;
 }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .ticket-item {
+    padding: 1.2rem;
+    min-height: 140px;
+  }
+
+  .ticket-item:hover {
+    transform: none;
+  }
+
+  .ticket-title {
+    font-size: 1rem;
+  }
+
+  .ticket-description {
+    font-size: 0.9rem;
+  }
+
+  .ticket-footer {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}
