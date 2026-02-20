@@ -24,6 +24,8 @@ class Notification:
     message: str
     sent_at: datetime
     read: bool = False
+    user_id: str = ''
+    response_id: Optional[int] = None
     
     # Lista de eventos de dominio generados por cambios en la entidad
     _domain_events: List[DomainEvent] = field(default_factory=list, init=False, repr=False)
