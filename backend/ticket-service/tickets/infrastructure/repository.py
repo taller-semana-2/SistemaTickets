@@ -33,14 +33,18 @@ class DjangoTicketRepository(TicketRepository):
             django_ticket.description = ticket.description
             django_ticket.status = ticket.status
             django_ticket.user_id = ticket.user_id
-            django_ticket.save(update_fields=['title', 'description', 'status', 'user_id'])
+            django_ticket.priority = ticket.priority
+            django_ticket.priority_justification = ticket.priority_justification
+            django_ticket.save(update_fields=['title', 'description', 'status', 'user_id', 'priority', 'priority_justification'])
         else:
             # Crear nuevo ticket
             django_ticket = DjangoTicket.objects.create(
                 title=ticket.title,
                 description=ticket.description,
                 status=ticket.status,
-                user_id=ticket.user_id
+                user_id=ticket.user_id,
+                priority=ticket.priority,
+                priority_justification=ticket.priority_justification
             )
             ticket.id = django_ticket.id
         
@@ -101,6 +105,8 @@ class DjangoTicketRepository(TicketRepository):
                 django_ticket.description = domain_ticket.description
                 django_ticket.status = domain_ticket.status
                 django_ticket.user_id = domain_ticket.user_id
+                django_ticket.priority = domain_ticket.priority
+                django_ticket.priority_justification = domain_ticket.priority_justification
                 return django_ticket
             except DjangoTicket.DoesNotExist:
                 pass
@@ -112,6 +118,8 @@ class DjangoTicketRepository(TicketRepository):
             description=domain_ticket.description,
             status=domain_ticket.status,
             user_id=domain_ticket.user_id,
+            priority=domain_ticket.priority,
+            priority_justification=domain_ticket.priority_justification,
             created_at=getattr(domain_ticket, 'created_at', None)
         )
     
@@ -132,5 +140,7 @@ class DjangoTicketRepository(TicketRepository):
             description=django_ticket.description,
             status=django_ticket.status,
             user_id=django_ticket.user_id,
+            priority=django_ticket.priority,
+            priority_justification=django_ticket.priority_justification,
             created_at=django_ticket.created_at
         )
