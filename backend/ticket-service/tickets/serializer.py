@@ -29,13 +29,28 @@ class TicketSerializer(serializers.ModelSerializer):
 
 
 class TicketResponseSerializer(serializers.ModelSerializer):
-    """Serializer para respuestas de admin en tickets.
+    """Serializer para respuestas de administrador en tickets.
 
-    Valida: texto obligatorio, máximo 2000 caracteres, admin_id obligatorio.
-    Los campos ticket, id, created_at son de solo lectura.
+    Validaciones explícitas:
+    - ``text``: obligatorio, no vacío, máximo 2000 caracteres.
+    - ``admin_id``: obligatorio, no vacío.
+    - ``id``, ``ticket``, ``created_at``: solo lectura (asignados por el sistema).
     """
+
+    text: serializers.CharField = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        max_length=2000,
+        help_text="Texto de la respuesta del administrador (máx. 2000 caracteres).",
+    )
+    admin_id: serializers.CharField = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        max_length=255,
+        help_text="Identificador del administrador que responde.",
+    )
 
     class Meta:
         model = TicketResponse
-        fields = ["id", "ticket", "admin_id", "text", "created_at"]
-        read_only_fields = ["id", "ticket", "created_at"]
+        fields: list[str] = ["id", "ticket", "admin_id", "text", "created_at"]
+        read_only_fields: list[str] = ["id", "ticket", "created_at"]

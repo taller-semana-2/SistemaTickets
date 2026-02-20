@@ -178,35 +178,74 @@ class TicketViewSet(viewsets.ModelViewSet):
             )
 
     @action(detail=True, methods=["get", "post"], url_path="responses")
-    def responses(self, request, pk=None):
-        """
-        GET /api/tickets/{id}/responses/ — List responses (HU-1.2).
-        POST /api/tickets/{id}/responses/ — Add admin response (HU-1.1).
+    def responses(self, request, pk: str | None = None) -> Response:
+        """Punto de entrada para respuestas de administrador en un ticket.
+
+        GET  /api/tickets/{id}/responses/ — Lista respuestas (HU-1.2).
+        POST /api/tickets/{id}/responses/ — Crea respuesta de admin (HU-1.1).
+
+        Args:
+            request: Objeto HTTP de DRF.
+            pk: ID del ticket.
+
+        Returns:
+            Response con lista de respuestas o la respuesta creada.
         """
         if request.method == "GET":
             return self._list_responses(pk)
         return self._create_response(request, pk)
 
-    def _list_responses(self, ticket_id):
-        """Lista respuestas de un ticket en orden cronológico ascendente."""
-        responses = TicketResponse.objects.filter(ticket_id=ticket_id).order_by("created_at")
+    def _list_responses(self, ticket_id: str | None) -> Response:
+        """Lista respuestas de un ticket en orden cronológico ascendente.
+
+        Accede directamente al ORM para lecturas simples, siguiendo el
+        patrón ya establecido en ``my_tickets``.
+
+        Args:
+            ticket_id: ID del ticket cuyas respuestas se listan.
+
+        Returns:
+            Response 200 con lista serializada de respuestas.
+        """
+        responses = TicketResponse.objects.filter(
+            ticket_id=ticket_id,
+        ).order_by("created_at")
         serializer = TicketResponseSerializer(responses, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def _create_response(self, request, ticket_id):
-        """Crea una respuesta de admin invocando el caso de uso de dominio."""
+    def _create_response(self, request, ticket_id: str | None) -> Response:
+        """Crea una respuesta de administrador delegando al caso de uso.
+
+        Flujo:
+        1. Valida entrada con ``TicketResponseSerializer``.
+        2. Ejecuta ``AddTicketResponseUseCase`` (reglas de dominio + evento).
+        3. Persiste ``TicketResponse`` en el modelo Django.
+        4. Retorna la respuesta creada.
+
+        Note:
+            El evento ``TicketResponseAdded`` se publica dentro del caso de
+            uso con ``response_id=0`` porque el ID real solo existe tras la
+            persistencia del modelo Django.  Esto es una limitación conocida:
+            el dominio no debe depender de infraestructura, por lo que el
+            response_id real no puede inyectarse sin refactorizar el caso de
+            uso.  Se registra como deuda técnica para resolución futura.
+
+        Args:
+            request: Objeto HTTP de DRF con ``text`` y ``admin_id``.
+            ticket_id: ID del ticket al que se agrega la respuesta.
+
+        Returns:
+            Response 201 con la respuesta creada, o 400 ante error de dominio.
+
+        Raises:
+            No lanza excepciones; todas se traducen a respuestas HTTP.
+        """
         serializer = TicketResponseSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        admin_id = serializer.validated_data.get("admin_id")
-        text = serializer.validated_data.get("text")
-
-        if not admin_id:
-            return Response(
-                {"error": "El campo admin_id es obligatorio"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        admin_id: str = serializer.validated_data["admin_id"]
+        text: str = serializer.validated_data["text"]
 
         try:
             command = AddTicketResponseCommand(
@@ -216,7 +255,8 @@ class TicketViewSet(viewsets.ModelViewSet):
             )
             self.add_response_use_case.execute(command)
 
-            # Persist in Django model
+            # Persistir en modelo Django (el caso de uso opera sobre entidades
+            # de dominio; la capa de infraestructura ORM vive aquí).
             ticket = Ticket.objects.get(pk=ticket_id)
             response_obj = TicketResponse.objects.create(
                 ticket=ticket,
@@ -227,6 +267,11 @@ class TicketViewSet(viewsets.ModelViewSet):
             output_serializer = TicketResponseSerializer(response_obj)
             return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
+        except Ticket.DoesNotExist:
+            return Response(
+                {"error": f"Ticket {ticket_id} no encontrado"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except TicketAlreadyClosed as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except EmptyResponseError as e:
