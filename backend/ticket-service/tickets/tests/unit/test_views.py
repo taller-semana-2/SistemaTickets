@@ -5,6 +5,8 @@ Prueban la integración HTTP con casos de uso.
 
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
+from rest_framework.request import Request
+from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 from rest_framework import status
 from unittest.mock import Mock, patch
 
@@ -22,6 +24,10 @@ class TestTicketViewSet(TestCase):
     def setUp(self):
         """Configurar para cada test."""
         self.factory = APIRequestFactory()
+
+    def _make_drf_request(self, wsgi_request):
+        """Envuelve un WSGIRequest en un DRF Request para llamadas directas a métodos del ViewSet."""
+        return Request(wsgi_request, parsers=[JSONParser(), FormParser(), MultiPartParser()])
     
     def test_viewset_uses_create_use_case_on_create(self):
         """ViewSet ejecuta CreateTicketUseCase al crear ticket."""
@@ -190,7 +196,7 @@ class TestTicketViewSet(TestCase):
         mock_use_case.execute.return_value = mock_domain_ticket
         viewset.change_priority_use_case = mock_use_case
 
-        request = self.factory.patch('', {"priority": "High", "user_role": "Administrador"})
+        request = self._make_drf_request(self.factory.patch('', {"priority": "High", "user_role": "Administrador"}))
 
         response = viewset.change_priority(request, pk=django_ticket.id)
 
@@ -207,7 +213,7 @@ class TestTicketViewSet(TestCase):
 
         viewset = TicketViewSet()
 
-        request = self.factory.patch('', {})
+        request = self._make_drf_request(self.factory.patch('', {}))
 
         response = viewset.change_priority(request, pk=django_ticket.id)
 
@@ -228,7 +234,7 @@ class TestTicketViewSet(TestCase):
         mock_use_case.execute.side_effect = TicketAlreadyClosed(django_ticket.id)
         viewset.change_priority_use_case = mock_use_case
 
-        request = self.factory.patch('', {"priority": "High", "user_role": "Administrador"})
+        request = self._make_drf_request(self.factory.patch('', {"priority": "High", "user_role": "Administrador"}))
 
         response = viewset.change_priority(request, pk=django_ticket.id)
 
@@ -251,7 +257,7 @@ class TestTicketViewSet(TestCase):
         )
         viewset.change_priority_use_case = mock_use_case
 
-        request = self.factory.patch('', {"priority": "Unassigned", "user_role": "Administrador"})
+        request = self._make_drf_request(self.factory.patch('', {"priority": "Unassigned", "user_role": "Administrador"}))
 
         response = viewset.change_priority(request, pk=django_ticket.id)
 
@@ -271,7 +277,7 @@ class TestTicketViewSet(TestCase):
         mock_use_case.execute.side_effect = DomainException("Permiso insuficiente")
         viewset.change_priority_use_case = mock_use_case
 
-        request = self.factory.patch('', {"priority": "High", "user_role": "Usuario"})
+        request = self._make_drf_request(self.factory.patch('', {"priority": "High", "user_role": "Usuario"}))
 
         response = viewset.change_priority(request, pk=django_ticket.id)
 
@@ -301,11 +307,11 @@ class TestTicketViewSet(TestCase):
         mock_use_case.execute.return_value = mock_domain_ticket
         viewset.change_priority_use_case = mock_use_case
 
-        request = self.factory.patch('', {
+        request = self._make_drf_request(self.factory.patch('', {
             "priority": "High",
             "justification": "Urgente",
             "user_role": "Administrador"
-        })
+        }))
 
         response = viewset.change_priority(request, pk=django_ticket.id)
 
@@ -338,7 +344,7 @@ class TestTicketViewSet(TestCase):
         mock_use_case.execute.return_value = mock_domain_ticket
         viewset.change_priority_use_case = mock_use_case
 
-        request = self.factory.patch('', {"priority": "High", "user_role": "Administrador"})
+        request = self._make_drf_request(self.factory.patch('', {"priority": "High", "user_role": "Administrador"}))
 
         response = viewset.change_priority(request, pk=django_ticket.id)
 

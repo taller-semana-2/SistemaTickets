@@ -149,15 +149,26 @@ class TicketViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=["patch"], url_path="priority")
     def change_priority(self, request, pk=None):
-        """Cambia la prioridad de un ticket ejecutando el caso de uso."""
-        if not hasattr(request, 'data'):
-            from rest_framework.request import Request
-            from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
-            request = Request(request, parsers=[JSONParser(), FormParser(), MultiPartParser()])
-        new_priority = request.data.get("priority")
-        justification = request.data.get("justification", "")
-        user_role = request.data.get("user_role", "")
+        """
+        Cambia la prioridad de un ticket ejecutando el caso de uso.
+        Aplica reglas de negocio del dominio (transiciones válidas, permisos).
 
+        PATCH /api/tickets/{id}/priority/
+
+        Body params:
+            - priority (str, requerido): Nueva prioridad del ticket.
+            - justification (str, opcional): Justificación del cambio.
+            - user_role (str, opcional): Rol del usuario que solicita el cambio.
+
+        Errores:
+            - 400: Campo 'priority' ausente, ticket cerrado, transición inválida.
+            - 403: Permiso denegado (excepción de dominio).
+        """
+        new_priority = request.data.get("priority")
+        justification = request.data.get("justification")
+        user_role = request.data.get("user_role")
+
+        # Validación de entrada HTTP
         if not new_priority:
             return Response(
                 {"error": "El campo 'priority' es requerido"},
@@ -165,6 +176,7 @@ class TicketViewSet(viewsets.ModelViewSet):
             )
 
         try:
+            # Crear comando
             command = ChangeTicketPriorityCommand(
                 ticket_id=int(pk),
                 new_priority=new_priority
@@ -172,8 +184,10 @@ class TicketViewSet(viewsets.ModelViewSet):
             command.justification = justification
             command.user_role = user_role
 
+            # Ejecutar caso de uso
             domain_ticket = self.change_priority_use_case.execute(command)
 
+            # Convertir entidad de dominio a modelo Django para serialización
             django_ticket = self.repository.to_django_model(domain_ticket)
 
             return Response(
@@ -181,22 +195,20 @@ class TicketViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_200_OK,
             )
 
-        except TicketAlreadyClosed as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except InvalidPriorityTransition as e:
+        except (TicketAlreadyClosed, InvalidPriorityTransition) as e:
+            # Regla de negocio violada: ticket cerrado o transición de prioridad inválida
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except ValueError as e:
+            # Valor inválido o ticket no encontrado
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except DomainException as e:
+            # Otras excepciones de dominio (ej. permiso denegado)
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_403_FORBIDDEN,
