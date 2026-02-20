@@ -41,6 +41,26 @@
   box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
 }
 
+.assignment-badge.priority-high {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+}
+
+.assignment-badge.priority-medium {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
+}
+
+.assignment-badge.priority-low {
+  background: linear-gradient(90deg, #10b981, #059669);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+}
+
+.assignment-badge.priority-unassigned {
+  background: linear-gradient(90deg, #94a3b8, #64748b);
+  box-shadow: 0 4px 10px rgba(148, 163, 184, 0.3);
+}
+
 .assignment-title {
   color: #1e293b;
   font-size: 1.15rem;

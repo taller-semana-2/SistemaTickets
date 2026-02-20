@@ -129,7 +129,9 @@ const AssignmentList = () => {
               key={item.id}
               className={`assignment-card ${item.completed ? 'completed' : ''}`}
             >
-              <div className="assignment-badge">{item.priority}</div>
+              <div className={`assignment-badge priority-${(item.priority || 'unassigned').toLowerCase()}`}>
+                {item.priority ? item.priority.charAt(0).toUpperCase() + item.priority.slice(1).toLowerCase() : 'Unassigned'}
+              </div>
 
               <div className="assignment-content">
                 <h3 className="assignment-title">Ticket #{item.ticket_id}</h3>

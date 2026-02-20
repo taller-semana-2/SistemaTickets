@@ -24,7 +24,7 @@ class Assignment:
     id: Optional[int] = None
     assigned_to: Optional[str] = None
     
-    VALID_PRIORITIES = ['high', 'medium', 'low']
+    VALID_PRIORITIES = ['high', 'medium', 'low', 'unassigned']
     
     def __post_init__(self):
         """Valida la entidad al momento de creación"""
