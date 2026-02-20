@@ -11,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sistema_tickets"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -33,7 +38,8 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "8000:8000"
 
@@ -71,6 +77,11 @@ services:
       - "5433:5432"
     volumes:
       - assessment_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assessment_user -d assessment_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   assessment-service:
     build:
@@ -95,8 +106,10 @@ services:
       POSTGRES_PORT: "5432"
       RABBITMQ_HOST: rabbitmq
     depends_on:
-      - assessment-db
-      - rabbitmq
+      assessment-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     ports:
       - "8002:8000"
 
@@ -137,6 +150,11 @@ services:
       - "5434:5432"
     volumes:
       - notification_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_user -d notifications_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   notification-service:
     build:
@@ -159,8 +177,10 @@ services:
       POSTGRES_PORT: "5432"
       RABBITMQ_HOST: rabbitmq
     depends_on:
-      - notification-db
-      - rabbitmq
+      notification-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     ports:
       - "8001:8000"
 
@@ -201,6 +221,11 @@ services:
       - "5435:5432"
     volumes:
       - users_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U users_user -d users_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   users-service:
     build:
@@ -224,8 +249,10 @@ services:
       POSTGRES_PORT: "5432"
       RABBITMQ_HOST: rabbitmq
     depends_on:
-      - users-db
-      - rabbitmq
+      users-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     ports:
       - "8003:8000"
 
