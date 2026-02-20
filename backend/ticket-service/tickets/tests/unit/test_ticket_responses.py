@@ -15,6 +15,22 @@ from tickets.domain.exceptions import TicketAlreadyClosed, EmptyResponseError, R
 class TestTicketResponses:
     """Tests de la entidad Ticket relacionados con respuestas de admin."""
 
+    def _make_ticket(
+        self,
+        status: str = Ticket.OPEN,
+        ticket_id: int = 1,
+        title: str = "Ticket de prueba",
+    ) -> Ticket:
+        """Helper: crea un Ticket de dominio con valores por defecto razonables."""
+        return Ticket(
+            id=ticket_id,
+            title=title,
+            description="Descripción de prueba",
+            status=status,
+            user_id="user-test",
+            created_at=datetime(2026, 2, 20, 10, 0, 0),
+        )
+
     def test_cannot_add_response_to_closed_ticket_ep16(self):
         """
         EP16 (R7): Admin no puede responder ticket en estado CLOSED.
@@ -27,14 +43,7 @@ class TestTicketResponses:
           And se informa que no se pueden responder tickets cerrados
         """
         # Arrange — ticket en estado CLOSED
-        ticket = Ticket(
-            id=42,
-            title="Problema con facturacion",
-            description="No puedo descargar mi factura",
-            status=Ticket.CLOSED,
-            user_id="user-100",
-            created_at=datetime(2026, 2, 19, 10, 0, 0),
-        )
+        ticket = self._make_ticket(status=Ticket.CLOSED, ticket_id=42)
 
         # Act & Assert — intentar responder debe lanzar TicketAlreadyClosed
         with pytest.raises(TicketAlreadyClosed) as exc_info:
@@ -62,14 +71,7 @@ class TestTicketResponses:
           And retorna un error indicando que el texto es obligatorio
         """
         # Arrange — ticket en estado OPEN (válido para respuestas)
-        ticket = Ticket(
-            id=99,
-            title="Consulta sobre envio",
-            description="Mi pedido no ha llegado",
-            status=Ticket.OPEN,
-            user_id="user-200",
-            created_at=datetime(2026, 2, 19, 12, 0, 0),
-        )
+        ticket = self._make_ticket(ticket_id=99)
 
         # Act & Assert — texto vacío debe lanzar EmptyResponseError
         with pytest.raises(EmptyResponseError) as exc_info:
@@ -104,14 +106,7 @@ class TestTicketResponses:
           When admin envía respuesta con exactamente 2000 caracteres
           Then la respuesta es aceptada sin error
         """
-        ticket = Ticket(
-            id=50,
-            title="Ticket de prueba longitud",
-            description="Desc",
-            status=Ticket.OPEN,
-            user_id="user-300",
-            created_at=datetime(2026, 2, 20, 10, 0, 0),
-        )
+        ticket = self._make_ticket(ticket_id=50)
 
         text_2000 = "a" * 2000
 
@@ -127,14 +122,7 @@ class TestTicketResponses:
           When admin envía respuesta con 2001 caracteres
           Then el sistema rechaza la acción con ResponseTooLongError
         """
-        ticket = Ticket(
-            id=51,
-            title="Ticket de prueba exceso",
-            description="Desc",
-            status=Ticket.OPEN,
-            user_id="user-301",
-            created_at=datetime(2026, 2, 20, 10, 0, 0),
-        )
+        ticket = self._make_ticket(ticket_id=51)
 
         text_2001 = "b" * 2001
 
@@ -150,14 +138,7 @@ class TestTicketResponses:
           When admin envía respuesta con texto "OK"
           Then la respuesta es aceptada sin error
         """
-        ticket = Ticket(
-            id=52,
-            title="Ticket respuesta corta",
-            description="Desc",
-            status=Ticket.OPEN,
-            user_id="user-302",
-            created_at=datetime(2026, 2, 20, 10, 0, 0),
-        )
+        ticket = self._make_ticket(ticket_id=52)
 
         # Should NOT raise any exception
         ticket.add_response(text="OK", admin_id="admin-001")
@@ -167,14 +148,7 @@ class TestTicketResponses:
         La excepción ResponseTooLongError debe incluir el límite de 2000
         en su mensaje para informar al usuario.
         """
-        ticket = Ticket(
-            id=53,
-            title="Ticket msg error",
-            description="Desc",
-            status=Ticket.OPEN,
-            user_id="user-303",
-            created_at=datetime(2026, 2, 20, 10, 0, 0),
-        )
+        ticket = self._make_ticket(ticket_id=53)
 
         text_too_long = "c" * 2500
 

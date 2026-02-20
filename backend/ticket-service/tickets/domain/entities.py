@@ -226,16 +226,20 @@ class Ticket:
 
     def _validate_response_text(self, text: str) -> None:
         """
-        Valida que el texto de la respuesta no esté vacío.
+        Valida el texto de la respuesta: obligatoriedad y longitud máxima.
 
         Regla de negocio R8: El texto de la respuesta es obligatorio.
         Se rechaza texto None, cadena vacía o solo espacios en blanco.
+
+        Regla de negocio (Issue #77): El texto no puede exceder
+        MAX_RESPONSE_LENGTH (2000) caracteres.
 
         Args:
             text: Texto de la respuesta a validar
 
         Raises:
-            EmptyResponseError: Si el texto está vacío o es None
+            EmptyResponseError: Si el texto está vacío, None o solo espacios
+            ResponseTooLongError: Si el texto excede MAX_RESPONSE_LENGTH caracteres
         """
         if not text or not text.strip():
             raise EmptyResponseError()
@@ -249,6 +253,7 @@ class Ticket:
         Regla de negocio R7: Solo tickets en estado OPEN o IN_PROGRESS
         pueden recibir respuestas. Tickets en estado CLOSED son rechazados.
         Regla de negocio R8: El texto de la respuesta es obligatorio.
+        Regla de negocio (Issue #77): Máximo MAX_RESPONSE_LENGTH caracteres.
 
         Args:
             text: Texto de la respuesta
@@ -257,6 +262,7 @@ class Ticket:
         Raises:
             TicketAlreadyClosed: Si el ticket está en estado CLOSED
             EmptyResponseError: Si el texto está vacío o es None
+            ResponseTooLongError: Si el texto excede MAX_RESPONSE_LENGTH caracteres
         """
         self._validate_can_add_response()
         self._validate_response_text(text)
