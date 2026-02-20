@@ -3,22 +3,64 @@ import { useParams } from 'react-router-dom';
 import { ticketApi } from '../../services/ticketApi';
 import { authService } from '../../services/auth';
 import { LoadingState } from '../../components/common';
+import { formatDate, sortByDateAsc } from '../../utils/dateFormat';
 import type { Ticket, TicketResponse } from '../../types/ticket';
 import './TicketDetail.css';
 
-/**
- * Formatea una fecha ISO 8601 a un string legible.
- */
-const formatDate = (iso: string): string => {
-  const date = new Date(iso);
-  return date.toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+interface ResponseItemProps {
+  response: TicketResponse;
+}
+
+/** Renderiza una respuesta individual de un administrador. */
+const ResponseItem = ({ response }: ResponseItemProps) => (
+  <div className="response-item" data-testid="response-item">
+    <div className="response-header">
+      <span className="response-admin">{response.admin_name}</span>
+      <span className="response-date">{formatDate(response.created_at)}</span>
+    </div>
+    <p className="response-text">{response.text}</p>
+  </div>
+);
+
+interface ResponseListProps {
+  responses: TicketResponse[];
+}
+
+/** Lista de respuestas con empty state incluido. */
+const ResponseList = ({ responses }: ResponseListProps) => (
+  <section className="responses-section">
+    <h2 className="responses-title">Respuestas</h2>
+
+    {responses.length === 0 ? (
+      <p className="responses-empty">Aún no hay respuestas para este ticket</p>
+    ) : (
+      <div className="responses-list">
+        {responses.map((r) => (
+          <ResponseItem key={r.id} response={r} />
+        ))}
+      </div>
+    )}
+  </section>
+);
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Determina si el usuario actual puede ver las respuestas del ticket. */
+const canUserViewResponses = (ticket: Ticket): boolean => {
+  const currentUser = authService.getCurrentUser();
+  const isAdmin = authService.isAdmin();
+  return isAdmin || currentUser?.id === ticket.user_id;
 };
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 const TicketDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,25 +69,20 @@ const TicketDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const currentUser = authService.getCurrentUser();
-  const isAdmin = authService.isAdmin();
-
   useEffect(() => {
     if (!id) return;
+
+    const ticketId = Number(id);
 
     const fetchData = async () => {
       try {
         setLoading(true);
         const [ticketData, responsesData] = await Promise.all([
-          ticketApi.getTicket(Number(id)),
-          ticketApi.getResponses(Number(id)),
+          ticketApi.getTicket(ticketId),
+          ticketApi.getResponses(ticketId),
         ]);
         setTicket(ticketData);
-        setResponses(
-          [...responsesData].sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-          ),
-        );
+        setResponses(sortByDateAsc(responsesData, 'created_at'));
       } catch (err) {
         console.error('Error loading ticket detail:', err);
         setError('No se pudo cargar el ticket');
@@ -65,7 +102,7 @@ const TicketDetail = () => {
     return <div className="ticket-detail-error">{error ?? 'Ticket no encontrado'}</div>;
   }
 
-  const canViewResponses = isAdmin || currentUser?.id === ticket.user_id;
+  const hasAccess = canUserViewResponses(ticket);
 
   return (
     <div className="ticket-detail-container">
@@ -85,26 +122,8 @@ const TicketDetail = () => {
         </div>
       </div>
 
-      {canViewResponses ? (
-        <section className="responses-section">
-          <h2 className="responses-title">Respuestas</h2>
-
-          {responses.length === 0 ? (
-            <p className="responses-empty">Aún no hay respuestas para este ticket</p>
-          ) : (
-            <div className="responses-list">
-              {responses.map((response) => (
-                <div key={response.id} className="response-item" data-testid="response-item">
-                  <div className="response-header">
-                    <span className="response-admin">{response.admin_name}</span>
-                    <span className="response-date">{formatDate(response.created_at)}</span>
-                  </div>
-                  <p className="response-text">{response.text}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+      {hasAccess ? (
+        <ResponseList responses={responses} />
       ) : (
         <div className="access-restricted">
           <p>Acceso restringido</p>

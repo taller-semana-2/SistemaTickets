@@ -1,4 +1,5 @@
 import type { Ticket } from '../../types/ticket';
+import { formatDate } from '../../utils/dateFormat';
 import './TicketItem.css';
 
 interface Props {
@@ -22,23 +23,6 @@ const TicketItem = ({ ticket, onDelete, onUpdateStatus }: Props) => {
   const handleStatusClick = () => {
     const nextStatus = getNextStatus();
     onUpdateStatus(ticket.id, nextStatus);
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'Sin fecha';
-    
-    const date = new Date(dateString);
-    
-    // Verificar si la fecha es válida
-    if (isNaN(date.getTime())) return 'Fecha inválida';
-    
-    return new Intl.DateTimeFormat('es-ES', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
   };
 
   return (
