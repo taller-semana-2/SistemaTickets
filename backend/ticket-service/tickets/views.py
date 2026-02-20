@@ -7,6 +7,7 @@ NO contienen lógica de negocio, NO acceden directamente al ORM.
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.db import transaction
 
 from .models import Ticket, TicketResponse
 from .serializer import TicketSerializer, TicketResponseSerializer
@@ -274,21 +275,26 @@ class TicketViewSet(viewsets.ModelViewSet):
         text: str = serializer.validated_data["text"]
 
         try:
-            command = AddTicketResponseCommand(
-                ticket_id=int(ticket_id),
-                text=text,
-                admin_id=admin_id,
-            )
-            self.add_response_use_case.execute(command)
+            with transaction.atomic():
+                # C5 / B3 — Persistir primero para obtener el response_id real
+                # que se incluirá en el evento ticket.response_added.
+                ticket = Ticket.objects.get(pk=ticket_id)
+                response_obj = TicketResponse.objects.create(
+                    ticket=ticket,
+                    admin_id=admin_id,
+                    text=text,
+                )
 
-            # Persistir en modelo Django (el caso de uso opera sobre entidades
-            # de dominio; la capa de infraestructura ORM vive aquí).
-            ticket = Ticket.objects.get(pk=ticket_id)
-            response_obj = TicketResponse.objects.create(
-                ticket=ticket,
-                admin_id=admin_id,
-                text=text,
-            )
+                # Ejecutar caso de uso con el response_id ya conocido.
+                # Si el dominio rechaza la operación, la transacción hace
+                # rollback y el registro ORM se elimina automáticamente.
+                command = AddTicketResponseCommand(
+                    ticket_id=int(ticket_id),
+                    text=text,
+                    admin_id=admin_id,
+                    response_id=response_obj.id,
+                )
+                self.add_response_use_case.execute(command)
 
             output_serializer = TicketResponseSerializer(response_obj)
             return Response(output_serializer.data, status=status.HTTP_201_CREATED)
