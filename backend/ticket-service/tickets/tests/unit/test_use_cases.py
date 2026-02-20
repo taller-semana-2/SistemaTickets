@@ -508,6 +508,27 @@ class TestChangeTicketPriorityUseCase:
         existing_ticket, use_case, command, mock_repo, mock_publisher = (
             self._create_ticket_and_use_case(ticket_id=6, new_priority=priority)
         )
+
+        # Act
+        updated_ticket = use_case.execute(command)
+
+        # Assert — priority is updated
+        assert updated_ticket.priority == priority
+
+        # Assert — repository looked up by correct ID
+        mock_repo.find_by_id.assert_called_once_with(6)
+
+        # Assert — save was called once
+        mock_repo.save.assert_called_once()
+
+        # Assert — TicketPriorityChanged event published with correct data
+        mock_publisher.publish.assert_called_once()
+        event = mock_publisher.publish.call_args[0][0]
+        assert isinstance(event, TicketPriorityChanged)
+        assert event.ticket_id == 6
+        assert event.old_priority == "Unassigned"
+        assert event.new_priority == priority
+
     def test_priority_change_without_justification_is_valid(self):
         """
         EP10: Cambio de prioridad sin justificación es válido.
@@ -552,22 +573,20 @@ class TestChangeTicketPriorityUseCase:
         # Act
         updated_ticket = use_case.execute(command)
 
-        # Assert — priority is updated
-        assert updated_ticket.priority == priority
+        # Assert
+        assert updated_ticket.priority == "High"
+        assert updated_ticket.priority_justification is None
 
-        # Assert — repository looked up by correct ID
-        mock_repo.find_by_id.assert_called_once_with(6)
-
-        # Assert — save was called once
+        # Verificar evento publicado con justification=None
+        mock_repo.find_by_id.assert_called_once_with(10)
         mock_repo.save.assert_called_once()
-
-        # Assert — TicketPriorityChanged event published with correct data
         mock_publisher.publish.assert_called_once()
         event = mock_publisher.publish.call_args[0][0]
         assert isinstance(event, TicketPriorityChanged)
-        assert event.ticket_id == 6
-        assert event.old_priority == "Unassigned"
-        assert event.new_priority == priority
+        assert event.ticket_id == 10
+        assert event.old_priority == "Low"
+        assert event.new_priority == "High"
+        assert event.justification is None
 
     def test_cannot_revert_to_unassigned(self):
         """
@@ -648,18 +667,38 @@ class TestChangeTicketPriorityUseCase:
 
         # Assert — no domain events collected
         assert existing_ticket.collect_domain_events() == []
-        # Assert
-        assert updated_ticket.priority == "High"
-        assert updated_ticket.priority_justification is None
 
-        # Verificar evento publicado con justification=None
-        mock_publisher.publish.assert_called_once()
-        event = mock_publisher.publish.call_args[0][0]
-        assert isinstance(event, TicketPriorityChanged)
-        assert event.ticket_id == 10
-        assert event.old_priority == "Low"
-        assert event.new_priority == "High"
-        assert event.justification is None
+    @pytest.mark.parametrize("invalid_priority", ["critical", "urgent", "CRITICAL", "none", "123"])
+    def test_invalid_priority_value_is_rejected(self, invalid_priority: str):
+        """
+        EP9: Valor de prioridad fuera de enumeración es rechazado.
+
+        Scenario: Valor de prioridad fuera de enumeración es rechazado (EP9)
+          Given un ticket en estado "Open" con prioridad "Unassigned"
+          And el usuario autenticado tiene rol "Administrador"
+          When intenta cambiar la prioridad a un valor no válido
+          Then el sistema rechaza la acción
+          And no se persiste ningún cambio
+          And no se publica ningún evento de dominio
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=9,
+                status=Ticket.OPEN,
+                priority="Unassigned",
+                new_priority=invalid_priority,
+                user_role="Administrador",
+            )
+        )
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="Prioridad inválida"):
+            use_case.execute(command)
+
+        # No debe persistir ni publicar eventos
+        mock_repo.save.assert_not_called()
+        mock_publisher.publish.assert_not_called()
 
     def test_priority_change_with_justification_is_saved(self):
         """
