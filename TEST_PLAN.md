@@ -7,9 +7,6 @@
 | ✅ | Existe y está bien implementado |
 | ⚠️ | Existe pero necesita mejoras |
 | 🆕 | No existe, se recomienda crear |
-| 🔴 | Bloqueante en SonarQube (Quality Gate falla) |
-| 🟡 | Advertencia en SonarQube (deuda técnica) |
-
 ---
 
 ## Principio de Pruebas Aplicable
