@@ -9,7 +9,7 @@ import pytest
 from datetime import datetime
 
 from tickets.domain.entities import Ticket
-from tickets.domain.exceptions import TicketAlreadyClosed
+from tickets.domain.exceptions import TicketAlreadyClosed, EmptyResponseError
 
 
 class TestTicketResponses:
@@ -48,3 +48,47 @@ class TestTicketResponses:
         # Verify — no se generaron eventos de dominio
         events = ticket.collect_domain_events()
         assert len(events) == 0, "No debe generar eventos al rechazar respuesta en ticket cerrado"
+
+    def test_cannot_add_response_with_empty_text_ep18(self):
+        """
+        EP18 (R8): Respuesta con texto vacío es rechazada.
+        Issue #37: feat: validaciones de estado y obligatoriedad en respuestas
+
+        Scenario: Respuesta con texto vacío es rechazada (EP18)
+          Given un ticket en estado "OPEN"
+          And el usuario autenticado tiene rol "ADMIN"
+          When intenta enviar una respuesta sin texto
+          Then el sistema rechaza la acción
+          And retorna un error indicando que el texto es obligatorio
+        """
+        # Arrange — ticket en estado OPEN (válido para respuestas)
+        ticket = Ticket(
+            id=99,
+            title="Consulta sobre envio",
+            description="Mi pedido no ha llegado",
+            status=Ticket.OPEN,
+            user_id="user-200",
+            created_at=datetime(2026, 2, 19, 12, 0, 0),
+        )
+
+        # Act & Assert — texto vacío debe lanzar EmptyResponseError
+        with pytest.raises(EmptyResponseError) as exc_info:
+            ticket.add_response(
+                text="",
+                admin_id="admin-001",
+            )
+
+        assert "obligatori" in str(exc_info.value).lower(), (
+            "El mensaje de error debe indicar que el texto es obligatorio"
+        )
+
+        # Verify — no se generaron eventos de dominio
+        events = ticket.collect_domain_events()
+        assert len(events) == 0, "No debe generar eventos al rechazar respuesta con texto vacío"
+
+        # Act & Assert — texto None también debe lanzar EmptyResponseError
+        with pytest.raises(EmptyResponseError):
+            ticket.add_response(
+                text=None,
+                admin_id="admin-001",
+            )
