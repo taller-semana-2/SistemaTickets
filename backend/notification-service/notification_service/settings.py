@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'notifications',
     'rest_framework',
+    'rest_framework_simplejwt',
     'corsheaders',
 ]
 
@@ -78,11 +79,21 @@ STATIC_URL = 'static/'
 # RabbitMQ
 RABBITMQ_HOST = os.environ.get('RABBITMQ_HOST', 'rabbitmq')
 
-# REST framework (defaults, can be extended)
+# REST framework
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
-    ]
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTStatelessUserAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+SIMPLE_JWT = {
+    'SIGNING_KEY': os.environ.get('JWT_SECRET_KEY', SECRET_KEY),
+    'ALGORITHM': 'HS256',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 # CORS Configuration

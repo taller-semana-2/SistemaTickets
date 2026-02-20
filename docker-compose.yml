@@ -27,6 +27,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: ticket_service.settings
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-default-dev-secret-change-in-production}
       POSTGRES_DB: sistema_tickets
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -88,6 +89,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: assessment_service.settings
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-default-dev-secret-change-in-production}
       POSTGRES_DB: assessment_db
       POSTGRES_USER: assessment_user
       POSTGRES_PASSWORD: assessment_pass
@@ -152,6 +154,7 @@ services:
       - ./.env
     environment:
       DJANGO_SETTINGS_MODULE: notification_service.settings
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-default-dev-secret-change-in-production}
       POSTGRES_DB: notifications_db
       POSTGRES_USER: notification_user
       POSTGRES_PASSWORD: notif_pass
@@ -217,6 +220,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: user_service.settings
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-default-dev-secret-change-in-production}
       POSTGRES_DB: users_db
       POSTGRES_USER: users_user
       POSTGRES_PASSWORD: users_pass
