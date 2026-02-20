@@ -10,7 +10,7 @@ from ..domain.entities import Ticket
 from ..domain.factories import TicketFactory
 from ..domain.repositories import TicketRepository
 from ..domain.event_publisher import EventPublisher
-from ..domain.events import TicketCreated, TicketStatusChanged
+from ..domain.events import TicketCreated, TicketStatusChanged, TicketResponseAdded
 from ..domain.exceptions import TicketAlreadyClosed, DomainException
 
 
@@ -224,4 +224,79 @@ class ChangeTicketPriorityUseCase:
         for event in events:
             self.event_publisher.publish(event)
         
+        return ticket
+
+
+@dataclass
+class AddTicketResponseCommand:
+    """Comando: Agregar una respuesta a un ticket."""
+    ticket_id: int
+    text: str
+    admin_id: str
+
+
+class AddTicketResponseUseCase:
+    """
+    Caso de uso: Agregar una respuesta de admin a un ticket.
+
+    Responsabilidades:
+    1. Obtener el ticket del repositorio
+    2. Aplicar la operación de dominio (add_response)
+    3. Persistir el cambio
+    4. Generar y publicar eventos de dominio
+    """
+
+    def __init__(
+        self,
+        repository: TicketRepository,
+        event_publisher: EventPublisher
+    ):
+        """
+        Inyección de dependencias (DIP).
+        
+        Args:
+            repository: Repositorio para persistencia
+            event_publisher: Publicador de eventos
+        """
+        self.repository = repository
+        self.event_publisher = event_publisher
+
+    def execute(self, command: AddTicketResponseCommand) -> Ticket:
+        """
+        Ejecuta el caso de uso de agregar respuesta.
+
+        Args:
+            command: Comando con ticket_id, text y admin_id
+
+        Returns:
+            El ticket actualizado
+
+        Raises:
+            ValueError: Si el ticket no existe
+            TicketAlreadyClosed: Si el ticket está cerrado
+            EmptyResponseError: Si el texto está vacío
+        """
+        # 1. Obtener el ticket
+        ticket = self.repository.find_by_id(command.ticket_id)
+
+        if not ticket:
+            raise ValueError(f"Ticket {command.ticket_id} no encontrado")
+
+        # 2. Aplicar la operación de dominio (add_response)
+        ticket.add_response(command.text, command.admin_id)
+
+        # 3. Persistir el cambio
+        self.repository.save(ticket)
+
+        # 4. Generar y publicar evento de dominio
+        event = TicketResponseAdded(
+            occurred_at=datetime.now(),
+            ticket_id=ticket.id,
+            response_id=0,
+            admin_id=command.admin_id,
+            response_text=command.text,
+            user_id=ticket.user_id,
+        )
+        self.event_publisher.publish(event)
+
         return ticket
