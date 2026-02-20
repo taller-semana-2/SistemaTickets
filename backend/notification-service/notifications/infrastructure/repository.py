@@ -114,5 +114,7 @@ class DjangoNotificationRepository(NotificationRepository):
             ticket_id=django_notification.ticket_id,
             message=django_notification.message,
             sent_at=django_notification.sent_at,
-            read=django_notification.read
+            read=django_notification.read,
+            user_id=django_notification.user_id,
+            response_id=django_notification.response_id,
         )

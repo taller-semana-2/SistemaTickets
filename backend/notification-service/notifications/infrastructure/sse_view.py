@@ -93,4 +93,5 @@ def sse_notifications_view(request, user_id: str) -> StreamingHttpResponse:
     )
     response['Cache-Control'] = 'no-cache'
     response['X-Accel-Buffering'] = 'no'
+    response['Connection'] = 'keep-alive'
     return response
