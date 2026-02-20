@@ -40,6 +40,18 @@ class Ticket(models.Model):
         (CLOSED, "Closed"),
     ]
 
+    PRIORITY_UNASSIGNED = "Unassigned"
+    PRIORITY_LOW = "Low"
+    PRIORITY_MEDIUM = "Medium"
+    PRIORITY_HIGH = "High"
+
+    PRIORITY_CHOICES = [
+        (PRIORITY_UNASSIGNED, "Unassigned"),
+        (PRIORITY_LOW, "Low"),
+        (PRIORITY_MEDIUM, "Medium"),
+        (PRIORITY_HIGH, "High"),
+    ]
+
     title = models.CharField(max_length=255)
     description = models.TextField()
     status = models.CharField(
@@ -52,3 +64,12 @@ class Ticket(models.Model):
         help_text="ID del usuario que creó el ticket (referencia lógica, no FK)"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default=PRIORITY_UNASSIGNED,
+    )
+    priority_justification = models.TextField(
+        blank=True,
+        null=True,
+    )
