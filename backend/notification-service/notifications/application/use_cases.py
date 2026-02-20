@@ -4,7 +4,7 @@ Cada caso de uso representa una operación de negocio completa.
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 from datetime import datetime
 
 from ..domain.entities import Notification
@@ -81,13 +81,13 @@ class MarkNotificationAsReadUseCase:
 @dataclass
 class CreateNotificationFromResponseCommand:
     """Comando: Crear notificación a partir de un evento ticket.response_added."""
-    event_type: Any
-    ticket_id: Any
-    response_id: Any
-    admin_id: Any
-    response_text: Any
-    user_id: Any
-    timestamp: Any
+    event_type: Optional[str]
+    ticket_id: Optional[int]
+    response_id: Optional[int]
+    admin_id: Optional[int]
+    response_text: Optional[str]
+    user_id: Optional[int]
+    timestamp: Optional[str]
 
 
 class CreateNotificationFromResponseUseCase:
@@ -111,6 +111,23 @@ class CreateNotificationFromResponseUseCase:
         """
         self.repository = repository
 
+    def _validate_schema(self, command: CreateNotificationFromResponseCommand) -> None:
+        """
+        Valida que el comando contenga todos los campos obligatorios.
+
+        Args:
+            command: Comando con los datos del evento
+
+        Raises:
+            InvalidEventSchema: Si faltan campos obligatorios en el evento
+        """
+        missing = [
+            field for field in self.REQUIRED_FIELDS
+            if getattr(command, field, None) is None
+        ]
+        if missing:
+            raise InvalidEventSchema(missing_fields=missing)
+
     def execute(self, command: CreateNotificationFromResponseCommand) -> Notification:
         """
         Ejecuta la creación de notificación desde un evento de respuesta.
@@ -125,12 +142,7 @@ class CreateNotificationFromResponseUseCase:
             InvalidEventSchema: Si faltan campos obligatorios en el evento
         """
         # 1. Validar schema del evento
-        missing = [
-            field for field in self.REQUIRED_FIELDS
-            if getattr(command, field, None) is None
-        ]
-        if missing:
-            raise InvalidEventSchema(missing_fields=missing)
+        self._validate_schema(command)
 
         # 2. Crear entidad de dominio
         notification = Notification(
