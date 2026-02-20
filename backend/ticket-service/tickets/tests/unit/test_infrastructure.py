@@ -246,21 +246,20 @@ class TestRabbitMQEventPublisher(TestCase):
 class TestTicketModel(TestCase):
     """Tests del modelo Django Ticket — campos de prioridad (Phase 1)."""
 
+    def setUp(self):
+        """Crear ticket base reutilizable para cada test."""
+        self.ticket = DjangoTicket.objects.create(
+            title="Test",
+            description="Description",
+        )
+
     def test_ticket_model_creation_defaults_priority_to_unassigned(self):
         """Crear ticket sin prioridad explícita debe asignar 'Unassigned' por defecto."""
-        ticket = DjangoTicket.objects.create(
-            title="Test",
-            description="Description"
-        )
-        assert ticket.priority == "Unassigned"
+        assert self.ticket.priority == "Unassigned"
 
     def test_ticket_model_creation_defaults_priority_justification_to_none(self):
         """Crear ticket sin justificación debe dejar priority_justification en None."""
-        ticket = DjangoTicket.objects.create(
-            title="Test",
-            description="Description"
-        )
-        assert ticket.priority_justification is None
+        assert self.ticket.priority_justification is None
 
     def test_ticket_model_accepts_valid_priority_values(self):
         """El modelo acepta los valores de prioridad válidos: Low, Medium, High."""
@@ -278,14 +277,10 @@ class TestTicketModel(TestCase):
 
     def test_ticket_model_can_update_priority_and_justification(self):
         """Un ticket existente puede actualizar priority y priority_justification."""
-        ticket = DjangoTicket.objects.create(
-            title="Test",
-            description="D"
-        )
-        ticket.priority = "High"
-        ticket.priority_justification = "Urgente"
-        ticket.save()
+        self.ticket.priority = "High"
+        self.ticket.priority_justification = "Urgente"
+        self.ticket.save()
 
-        updated_ticket = DjangoTicket.objects.get(pk=ticket.id)
+        updated_ticket = DjangoTicket.objects.get(pk=self.ticket.id)
         assert updated_ticket.priority == "High"
         assert updated_ticket.priority_justification == "Urgente"
