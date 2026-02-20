@@ -64,9 +64,19 @@ class TicketEventAdapter:
         """
         Determina la prioridad de la asignación.
         
-        Actualmente usa lógica aleatoria, pero podría expandirse para:
-        - Analizar el tipo de ticket
-        - Usar ML para predecir prioridad
-        - Aplicar reglas de negocio complejas
+        Extrae la prioridad del evento creado. Si no viene explícita, 
+        se podría inferir en base al tipo de problema.
         """
-        return random.choice(['high', 'medium', 'low'])
+        # Extraer del evento si viene provisto
+        priority = event_data.get('priority')
+        if priority:
+            return priority.lower()
+            
+        # Si no viene, intentar inferirla del tipo de incidencia o usar medium por defecto
+        incident_type = event_data.get('type') or event_data.get('incidentType', '')
+        if incident_type in ['software', 'hardware']:
+            return 'high'
+        elif incident_type in ['network', 'access']:
+            return 'medium'
+            
+        return 'low'
