@@ -32,6 +32,7 @@ def _format_sse_event(notification: Notification) -> str:
         'ticket_id': notification.ticket_id,
         'message': notification.message,
         'created_at': notification.sent_at.isoformat(),
+        'response_id': notification.response_id,
     }
     return f"event: notification\ndata: {json.dumps(data)}\n\n"
 
@@ -48,10 +49,13 @@ def _notification_stream(user_id: str) -> Generator[str, None, None]:
     Yields:
         Eventos SSE formateados como cadenas de texto.
     """
+    # Heartbeat inicial para confirmar conexión activa (EP23)
+    yield ": heartbeat\n\n"
+
     notifications = (
         Notification.objects
         .filter(user_id=user_id)
-        .only('id', 'ticket_id', 'message', 'sent_at', 'user_id')
+        .only('id', 'ticket_id', 'message', 'sent_at', 'user_id', 'response_id')
         .order_by('sent_at')
         .iterator()
     )
