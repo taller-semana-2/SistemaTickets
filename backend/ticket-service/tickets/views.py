@@ -14,14 +14,17 @@ from .application.use_cases import (
     CreateTicketUseCase,
     CreateTicketCommand,
     ChangeTicketStatusUseCase,
-    ChangeTicketStatusCommand
+    ChangeTicketStatusCommand,
+    ChangeTicketPriorityUseCase,
+    ChangeTicketPriorityCommand
 )
 from .infrastructure.repository import DjangoTicketRepository
 from .infrastructure.event_publisher import RabbitMQEventPublisher
 from .domain.exceptions import (
     DomainException,
     TicketAlreadyClosed,
-    InvalidTicketData
+    InvalidTicketData,
+    InvalidPriorityTransition
 )
 
 
@@ -58,6 +61,10 @@ class TicketViewSet(viewsets.ModelViewSet):
             event_publisher=self.event_publisher
         )
         self.change_status_use_case = ChangeTicketStatusUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        self.change_priority_use_case = ChangeTicketPriorityUseCase(
             repository=self.repository,
             event_publisher=self.event_publisher
         )
@@ -140,6 +147,61 @@ class TicketViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
     
+    @action(detail=True, methods=["patch"], url_path="priority")
+    def change_priority(self, request, pk=None):
+        """Cambia la prioridad de un ticket ejecutando el caso de uso."""
+        if not hasattr(request, 'data'):
+            from rest_framework.request import Request
+            from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
+            request = Request(request, parsers=[JSONParser(), FormParser(), MultiPartParser()])
+        new_priority = request.data.get("priority")
+        justification = request.data.get("justification", "")
+        user_role = request.data.get("user_role", "")
+
+        if not new_priority:
+            return Response(
+                {"error": "El campo 'priority' es requerido"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            command = ChangeTicketPriorityCommand(
+                ticket_id=int(pk),
+                new_priority=new_priority
+            )
+            command.justification = justification
+            command.user_role = user_role
+
+            domain_ticket = self.change_priority_use_case.execute(command)
+
+            django_ticket = self.repository.to_django_model(domain_ticket)
+
+            return Response(
+                TicketSerializer(django_ticket).data,
+                status=status.HTTP_200_OK,
+            )
+
+        except TicketAlreadyClosed as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except InvalidPriorityTransition as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except DomainException as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
     @action(detail=False, methods=["get"], url_path="my-tickets/(?P<user_id>[^/.]+)")
     def my_tickets(self, request, user_id=None):
         """
