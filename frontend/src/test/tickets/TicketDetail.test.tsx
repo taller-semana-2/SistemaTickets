@@ -11,6 +11,13 @@ import type { Ticket, TicketResponse } from '../../types/ticket';
 // Mocks — same pattern as NotificationList.test.tsx / AssignmentList.test.tsx
 // ---------------------------------------------------------------------------
 
+// useSSE abre conexiones EventSource y requiere NotificationProvider.
+// En los tests de TicketDetail no interesa probar SSE (eso tiene su propia suite);
+// se mockea para aislar el componente de esa dependencia de infraestructura.
+vi.mock('../../hooks/useSSE', () => ({
+  useSSE: vi.fn(),
+}));
+
 vi.mock('../../services/ticketApi', () => ({
   ticketApi: {
     getTickets: vi.fn(),

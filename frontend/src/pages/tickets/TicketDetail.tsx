@@ -4,6 +4,7 @@ import { LoadingState } from '../../components/common';
 import { formatDate } from '../../utils/dateFormat';
 import type { Ticket, TicketResponse } from '../../types/ticket';
 import { useTicketDetail } from './useTicketDetail';
+import { useSSE } from '../../hooks/useSSE';
 import AdminResponseForm from './AdminResponseForm';
 import './TicketDetail.css';
 
@@ -83,7 +84,20 @@ const AdminPanel = ({ ticketId, isClosed, onResponseCreated }: AdminPanelProps) 
 
 const TicketDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { ticket, responses, loading, error, appendResponse } = useTicketDetail(id);
+  const { ticket, responses, loading, error, appendResponse, fetchResponses } = useTicketDetail(id);
+
+  /**
+   * HU-2.2 + HU-3.1: conexión SSE scoped a este ticket.
+   * - refreshUnread()      → actualiza el badge de notificaciones del navbar.
+   * - fetchResponses()     → re-carga respuestas cuando llega un evento del
+   *                          ticket actualmente visible, sin recargar la página.
+   * El Layout global NO monta useSSE mientras esta ruta esté activa, por lo que
+   * sólo existe una única conexión EventSource en todo momento.
+   */
+  useSSE({
+    currentTicketId: id ? Number(id) : undefined,
+    onRefreshResponses: fetchResponses,
+  });
 
   if (loading) {
     return <LoadingState message="Cargando ticket..." />;
