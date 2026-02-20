@@ -21,7 +21,7 @@ const adaptNotification = (apiData: NotificationApiResponse): Notification => ({
 
 export const notificationsApi = {
   async getNotifications(): Promise<Notification[]> {
-    const { data } = await notificationApiClient.get<NotificationApiResponse[]>('/notifications/');
+    const { data } = await notificationApiClient.get<NotificationApiResponse[]>(`/notifications/?t=${new Date().getTime()}`);
     return data.map(adaptNotification);
   },
 
