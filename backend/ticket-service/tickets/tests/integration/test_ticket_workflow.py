@@ -8,6 +8,7 @@ These tests validate:
 - Repository pattern implementation
 - Event-driven architecture
 - Business rules enforcement across the stack
+- Priority workflow validation
 """
 
 from django.test import TestCase
@@ -17,13 +18,17 @@ from tickets.domain.entities import Ticket as DomainTicket
 from tickets.domain.exceptions import (
     TicketAlreadyClosed,
     InvalidTicketStateTransition,
-    InvalidTicketData
+    InvalidTicketData,
+    InvalidPriorityTransition,
+    DomainException
 )
 from tickets.application.use_cases import (
     CreateTicketUseCase,
     CreateTicketCommand,
     ChangeTicketStatusUseCase,
-    ChangeTicketStatusCommand
+    ChangeTicketStatusCommand,
+    ChangeTicketPriorityUseCase,
+    ChangeTicketPriorityCommand
 )
 from tickets.infrastructure.repository import DjangoTicketRepository
 from tickets.infrastructure.event_publisher import RabbitMQEventPublisher
@@ -55,7 +60,8 @@ class TestCompleteTicketWorkflow(TestCase):
         ticket = create_use_case.execute(
             CreateTicketCommand(
                 title="Complete Lifecycle Test",
-                description="Testing full workflow"
+                description="Testing full workflow",
+                user_id="1"
             )
         )
         
@@ -102,20 +108,23 @@ class TestCompleteTicketWorkflow(TestCase):
         assert db_ticket.status == "CLOSED"
     
     def test_direct_open_to_closed_transition(self):
-        """Test: Ticket can go directly from OPEN to CLOSED."""
+        """Test: Ticket can go from OPEN to CLOSED via IN_PROGRESS."""
         # Create ticket
         create_use_case = CreateTicketUseCase(
             self.repository,
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Direct Close", "Test")
+            CreateTicketCommand("Direct Close", "Test", "1")
         )
         
-        # Close directly from OPEN
+        # Close via IN_PROGRESS
         change_use_case = ChangeTicketStatusUseCase(
             self.repository,
             self.event_publisher
+        )
+        ticket = change_use_case.execute(
+            ChangeTicketStatusCommand(ticket.id, DomainTicket.IN_PROGRESS)
         )
         ticket = change_use_case.execute(
             ChangeTicketStatusCommand(ticket.id, DomainTicket.CLOSED)
@@ -138,13 +147,16 @@ class TestCompleteTicketWorkflow(TestCase):
         )
         
         # Create three tickets
-        ticket1 = create_use_case.execute(CreateTicketCommand("T1", "D1"))
-        ticket2 = create_use_case.execute(CreateTicketCommand("T2", "D2"))
-        ticket3 = create_use_case.execute(CreateTicketCommand("T3", "D3"))
+        ticket1 = create_use_case.execute(CreateTicketCommand("T1", "D1", "1"))
+        ticket2 = create_use_case.execute(CreateTicketCommand("T2", "D2", "1"))
+        ticket3 = create_use_case.execute(CreateTicketCommand("T3", "D3", "1"))
         
         # Move them to different states
         change_use_case.execute(
             ChangeTicketStatusCommand(ticket1.id, DomainTicket.IN_PROGRESS)
+        )
+        change_use_case.execute(
+            ChangeTicketStatusCommand(ticket2.id, DomainTicket.IN_PROGRESS)
         )
         change_use_case.execute(
             ChangeTicketStatusCommand(ticket2.id, DomainTicket.CLOSED)
@@ -170,12 +182,15 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("To Close", "Test")
+            CreateTicketCommand("To Close", "Test", "1")
         )
         
         change_use_case = ChangeTicketStatusUseCase(
             self.repository,
             self.event_publisher
+        )
+        change_use_case.execute(
+            ChangeTicketStatusCommand(ticket.id, DomainTicket.IN_PROGRESS)
         )
         change_use_case.execute(
             ChangeTicketStatusCommand(ticket.id, DomainTicket.CLOSED)
@@ -199,7 +214,7 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Test", "Desc")
+            CreateTicketCommand("Test", "Desc", "1")
         )
         
         change_use_case = ChangeTicketStatusUseCase(
@@ -221,7 +236,7 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Test", "Desc")
+            CreateTicketCommand("Test", "Desc", "1")
         )
         
         initial_call_count = self.event_publisher.publish.call_count
@@ -252,7 +267,7 @@ class TestCompleteTicketWorkflow(TestCase):
         )
         
         ticket = create_use_case.execute(
-            CreateTicketCommand("Event Test", "Testing events")
+            CreateTicketCommand("Event Test", "Testing events", "1")
         )
         
         # Verify event published
@@ -274,7 +289,7 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Test", "Desc")
+            CreateTicketCommand("Test", "Desc", "1")
         )
         
         self.event_publisher.reset_mock()
@@ -306,7 +321,7 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Multi", "Events")
+            CreateTicketCommand("Multi", "Events", "1")
         )
         
         # Track events
@@ -338,7 +353,7 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         domain_ticket = create_use_case.execute(
-            CreateTicketCommand("Translation Test", "Testing repository")
+            CreateTicketCommand("Translation Test", "Testing repository", "1")
         )
         
         # Verify domain entity properties
@@ -363,7 +378,7 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Preserve", "Data integrity test")
+            CreateTicketCommand("Preserve", "Data integrity test", "1")
         )
         
         original_title = ticket.title
@@ -400,7 +415,7 @@ class TestCompleteTicketWorkflow(TestCase):
         # Try to create ticket with empty title
         with self.assertRaises(InvalidTicketData):
             create_use_case.execute(
-                CreateTicketCommand(title="", description="No title")
+                CreateTicketCommand(title="", description="No title", user_id="1")
             )
         
         # Verify no ticket created
@@ -439,7 +454,7 @@ class TestCompleteTicketWorkflow(TestCase):
         
         # Create ticket
         ticket = create_use_case.execute(
-            CreateTicketCommand("Architecture", "Testing layers")
+            CreateTicketCommand("Architecture", "Testing layers", "1")
         )
         
         # Verify domain entity returned (not Django model)
@@ -451,7 +466,8 @@ class TestCompleteTicketWorkflow(TestCase):
         # Create domain entity directly (no Django involved) using factory
         domain_ticket = DomainTicket.create(
             title="Pure Domain",
-            description="No framework dependencies"
+            description="No framework dependencies",
+            user_id="1"
         )
         
         # Apply business rule
@@ -478,12 +494,16 @@ class TestCompleteTicketWorkflow(TestCase):
             self.event_publisher
         )
         ticket = create_use_case.execute(
-            CreateTicketCommand("Concurrent", "Test")
+            CreateTicketCommand("Concurrent", "Test", "1")
         )
         
+        # Move to IN_PROGRESS first so both loads start from IN_PROGRESS
         change_use_case = ChangeTicketStatusUseCase(
             self.repository,
             self.event_publisher
+        )
+        change_use_case.execute(
+            ChangeTicketStatusCommand(ticket.id, DomainTicket.IN_PROGRESS)
         )
         
         # Load ticket twice (simulating concurrent access)
@@ -491,7 +511,7 @@ class TestCompleteTicketWorkflow(TestCase):
         ticket2 = self.repository.find_by_id(ticket.id)
         
         # Modify both and save
-        ticket1.change_status(DomainTicket.IN_PROGRESS)
+        ticket1.change_status(DomainTicket.CLOSED)
         self.repository.save(ticket1)
         
         ticket2.change_status(DomainTicket.CLOSED)
@@ -515,9 +535,191 @@ class TestCompleteTicketWorkflow(TestCase):
         # Try to create ticket (should fail on event publish)
         with self.assertRaises(Exception):
             create_use_case.execute(
-                CreateTicketCommand("Failing", "Event publish fails")
+                CreateTicketCommand("Failing", "Event publish fails", "1")
             )
         
         # Note: Current implementation doesn't rollback on publish failure
         # This test documents current behavior
         # In production, consider implementing transaction boundaries
+
+    # ==================== Priority Workflow Integration ====================
+
+    def test_complete_priority_change_workflow(self):
+        """RED-6.1: Flujo completo — crear ticket + cambiar prioridad persiste y publica evento."""
+        # 1. Crear ticket
+        create_use_case = CreateTicketUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        ticket = create_use_case.execute(
+            CreateTicketCommand(title="Priority Workflow", description="Integration test", user_id="1")
+        )
+
+        # 2. Cambiar prioridad
+        change_priority_use_case = ChangeTicketPriorityUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        command = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="High",
+        )
+        command.user_role = "Administrador"
+        command.justification = "Urgente"
+
+        updated_ticket = change_priority_use_case.execute(command)
+
+        # 3. Verificar entidad de dominio
+        assert updated_ticket.priority == "High"
+        assert updated_ticket.priority_justification == "Urgente"
+
+        # 4. Verificar persistencia en BD
+        db_ticket = DjangoTicket.objects.get(pk=ticket.id)
+        assert db_ticket.priority == "High"
+        assert db_ticket.priority_justification == "Urgente"
+
+        # 5. Verificar evento TicketPriorityChanged publicado
+        priority_events = [
+            c for c in self.event_publisher.publish.call_args_list
+            if c[0][0].__class__.__name__ == "TicketPriorityChanged"
+        ]
+        assert len(priority_events) == 1
+        event = priority_events[0][0][0]
+        assert event.ticket_id == ticket.id
+        assert event.old_priority == "Unassigned"
+        assert event.new_priority == "High"
+        assert event.justification == "Urgente"
+
+    def test_priority_change_on_closed_ticket_raises_error(self):
+        """RED-6.2: Flujo — cambiar prioridad de ticket cerrado falla con TicketAlreadyClosed."""
+        # 1. Crear ticket
+        create_use_case = CreateTicketUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        ticket = create_use_case.execute(
+            CreateTicketCommand(title="Close Then Priority", description="Test", user_id="1")
+        )
+
+        # 2. Cerrar ticket: OPEN → IN_PROGRESS → CLOSED
+        change_status_use_case = ChangeTicketStatusUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        change_status_use_case.execute(
+            ChangeTicketStatusCommand(ticket_id=ticket.id, new_status=DomainTicket.IN_PROGRESS)
+        )
+        change_status_use_case.execute(
+            ChangeTicketStatusCommand(ticket_id=ticket.id, new_status=DomainTicket.CLOSED)
+        )
+
+        # 3. Intentar cambiar prioridad en ticket cerrado
+        change_priority_use_case = ChangeTicketPriorityUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        command = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="High",
+        )
+        command.user_role = "Administrador"
+
+        with self.assertRaises(TicketAlreadyClosed):
+            change_priority_use_case.execute(command)
+
+    def test_priority_change_with_non_admin_raises_error(self):
+        """RED-6.3: Flujo — cambiar prioridad con usuario no admin falla con DomainException."""
+        # 1. Crear ticket
+        create_use_case = CreateTicketUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        ticket = create_use_case.execute(
+            CreateTicketCommand(title="Non Admin Priority", description="Test", user_id="1")
+        )
+
+        # 2. Intentar cambiar prioridad con rol "Usuario"
+        change_priority_use_case = ChangeTicketPriorityUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        command = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="High",
+        )
+        command.user_role = "Usuario"
+
+        with self.assertRaises(DomainException) as ctx:
+            change_priority_use_case.execute(command)
+
+        assert "permiso insuficiente" in str(ctx.exception).lower()
+
+    def test_revert_to_unassigned_raises_error_in_workflow(self):
+        """RED-6.4: Flujo — reversión a Unassigned falla con InvalidPriorityTransition."""
+        # 1. Crear ticket
+        create_use_case = CreateTicketUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        ticket = create_use_case.execute(
+            CreateTicketCommand(title="Revert Priority", description="Test", user_id="1")
+        )
+
+        # 2. Asignar prioridad High
+        change_priority_use_case = ChangeTicketPriorityUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        command_high = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="High",
+        )
+        command_high.user_role = "Administrador"
+        change_priority_use_case.execute(command_high)
+
+        # 3. Intentar revertir a Unassigned
+        command_unassigned = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="Unassigned",
+        )
+        command_unassigned.user_role = "Administrador"
+
+        with self.assertRaises(InvalidPriorityTransition):
+            change_priority_use_case.execute(command_unassigned)
+
+    def test_idempotent_priority_change_no_extra_event(self):
+        """RED-6.5: Flujo — idempotencia: mismo valor no publica evento adicional."""
+        # 1. Crear ticket
+        create_use_case = CreateTicketUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        ticket = create_use_case.execute(
+            CreateTicketCommand(title="Idempotent Priority", description="Test", user_id="1")
+        )
+
+        # 2. Cambiar prioridad a High (primera vez)
+        change_priority_use_case = ChangeTicketPriorityUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        command = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="High",
+        )
+        command.user_role = "Administrador"
+        change_priority_use_case.execute(command)
+
+        # Registrar el conteo de llamadas después del primer cambio
+        call_count_after_first = self.event_publisher.publish.call_count
+
+        # 3. Cambiar prioridad a High (segunda vez — idempotente)
+        command2 = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="High",
+        )
+        command2.user_role = "Administrador"
+        change_priority_use_case.execute(command2)
+
+        # Verificar que NO se publicó evento adicional
+        assert self.event_publisher.publish.call_count == call_count_after_first
