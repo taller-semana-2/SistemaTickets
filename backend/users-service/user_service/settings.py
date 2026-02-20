@@ -154,7 +154,7 @@ RABBITMQ_HOST = os.environ.get('RABBITMQ_HOST', 'rabbitmq')
 # ---------------------------------------------------------------------------
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'users.infrastructure.cookie_authentication.CookieJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -172,6 +172,16 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
 }
 
-# CORS: permitir todo durante desarrollo para comunicación entre microservicios
+# CORS Configuration
 # ---------------------------------------------------------------------------
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',  # Vite dev server
+]
+CORS_ALLOW_CREDENTIALS = True  # Required for cross-origin cookie exchange
+
+# CSRF Trusted Origins
+# ---------------------------------------------------------------------------
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:5173',
+]

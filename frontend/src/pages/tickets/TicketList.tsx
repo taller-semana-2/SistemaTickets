@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ticketApi } from '../../services/ticketApi';
-import { authService } from '../../services/auth';
+import { useAuth } from '../../context/AuthContext';
 import type { Ticket } from '../../types/ticket';
 import TicketItem from './TicketItem';
 import { LoadingState, EmptyState, PageHeader } from '../../components/common';
@@ -9,19 +9,16 @@ import './TicketList.css';
 const TicketList = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const { user } = useAuth();
 
   useEffect(() => {
-    ticketApi.getTickets()
+    ticketApi
+      .getTickets()
       .then((data) => {
-        // Obtener usuario actual
-        const currentUser = authService.getCurrentUser();
-        
-        // Si es USER, filtrar solo sus tickets
-        if (currentUser && currentUser.role === 'USER') {
-          const userTickets = data.filter(ticket => ticket.user_id === currentUser.id);
+        if (user && user.role === 'USER') {
+          const userTickets = data.filter((ticket) => ticket.user_id === user.id);
           setTickets(userTickets);
         } else {
-          // ADMIN ve todos los tickets
           setTickets(data);
         }
       })
@@ -31,63 +28,42 @@ const TicketList = () => {
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, [user]);
 
   const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      '¿Estás seguro de que deseas eliminar este ticket? Esta acción no se puede deshacer.'
-    );
-
+    const confirmed = window.confirm('¿Estás seguro de que deseas eliminar este ticket?');
     if (!confirmed) return;
-
     try {
       await ticketApi.deleteTicket(id);
-
-      setTickets((prevTickets) =>
-        prevTickets.filter((ticket) => ticket.id !== id)
-      );
+      setTickets((prevTickets) => prevTickets.filter((ticket) => ticket.id !== id));
     } catch (error) {
       console.error('Error al eliminar el ticket:', error);
       alert('No se pudo eliminar el ticket');
     }
   };
 
-  const handleUpdateStatus = async (
-  id: number,
-  status: Ticket['status']
-) => {
-  try {
-    const updated = await ticketApi.updateStatus(id, status);
+  const handleUpdateStatus = async (id: number, newStatus: Ticket['status']) => {
+    try {
+      const updated = await ticketApi.updateStatus(id, newStatus);
+      setTickets((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    } catch (error) {
+      console.error('Error actualizando estado', error);
+      alert('No se pudo actualizar el estado');
+    }
+  };
 
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === id ? updated : t
-      )
-    );
-  } catch (error) {
-    console.error('Error actualizando estado', error);
-    alert('No se pudo actualizar el estado');
-  }
-};
+  if (loading) return <LoadingState message="Cargando tickets..." />;
 
-  if (loading) {
-    return <LoadingState message="Cargando tickets..." />;
-  }
-
-  // Determinar título según rol
-  const currentUser = authService.getCurrentUser();
-  const isUser = currentUser?.role === 'USER';
+  const isUser = user?.role === 'USER';
   const pageTitle = isUser ? 'Mis Tickets' : 'Panel de Tickets';
 
   return (
     <div className="page-container">
-      <PageHeader 
-        title={pageTitle}
-        subtitle={`${tickets.length} tickets encontrados`}
-      />
-
+      <PageHeader title={pageTitle} subtitle={`${tickets.length} tickets encontrados`} />
       {tickets.length === 0 ? (
-        <EmptyState message={isUser ? "No tienes tickets creados" : "No hay tickets registrados"} />
+        <EmptyState
+          message={isUser ? 'No tienes tickets creados' : 'No hay tickets registrados'}
+        />
       ) : (
         <div className="tickets-grid">
           {tickets.map((ticket) => (

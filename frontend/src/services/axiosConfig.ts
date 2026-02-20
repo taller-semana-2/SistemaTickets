@@ -3,57 +3,49 @@ import axios, {
   type InternalAxiosRequestConfig,
   type AxiosInstance,
 } from 'axios';
-import { clearTokens, getAccessToken, refreshAccessToken } from './auth';
 
 interface RetryableRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
-// Cliente para ticket-service
+/** Client for ticket-service */
 export const ticketApiClient = axios.create({
   baseURL: 'http://localhost:8000/api',
   timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Cliente para notification-service
+/** Client for notification-service */
 export const notificationApiClient = axios.create({
   baseURL: 'http://localhost:8001/api',
   timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Cliente para assignment-service
+/** Client for assignment-service */
 export const assignmentApiClient = axios.create({
   baseURL: 'http://localhost:8002/api',
   timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Cliente para users-service
+/** Client for users-service */
 export const usersApiClient = axios.create({
   baseURL: 'http://localhost:8003/api',
   timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Interceptor global para logging (opcional)
+/**
+ * Request interceptor — logging only.
+ * No manual token injection; cookies are sent automatically.
+ */
 const logRequest = (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
   console.log(`→ ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-
-  const token = getAccessToken();
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
   return config;
 };
 
@@ -62,6 +54,12 @@ const logError = (error: AxiosError): Promise<never> => {
   return Promise.reject(error);
 };
 
+/**
+ * Attach request/response interceptors to an axios client.
+ *
+ * On 401 errors, attempts to refresh the token via cookie and retry.
+ * If refresh fails, redirects to /login.
+ */
 const attachInterceptors = (client: AxiosInstance): void => {
   client.interceptors.request.use(logRequest);
   client.interceptors.response.use(
@@ -72,22 +70,21 @@ const attachInterceptors = (client: AxiosInstance): void => {
       if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
         originalRequest._retry = true;
 
-        const newToken = await refreshAccessToken();
-        if (newToken) {
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          }
-
+        try {
+          // Refresh via cookie — backend reads refresh_token from cookie
+          await axios.post('http://localhost:8003/api/auth/refresh/', {}, {
+            withCredentials: true,
+          });
+          // Backend set new cookies — retry original request
           return client(originalRequest);
+        } catch {
+          // Refresh failed — redirect to login
+          window.location.href = '/login';
         }
-
-        clearTokens();
-        localStorage.removeItem('ticketSystem_user');
-        window.location.href = '/login';
       }
 
       return logError(error);
-    }
+    },
   );
 };
 

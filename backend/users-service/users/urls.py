@@ -1,57 +1,35 @@
 """
-users/urls.py
+users/urls.py — Presentation Layer (Routing)
 
-📋 CAPA DE PRESENTACIÓN - Routing
-
-🎯 PROPÓSITO:
-Define las rutas de la API REST.
-
-✅ EJEMPLO de lo que DEBE ir aquí:
-    from django.urls import path, include
-    from rest_framework.routers import DefaultRouter
-    from .views import UserViewSet
-    
-    # Configurar router de DRF
-    router = DefaultRouter()
-    router.register(r'users', UserViewSet, basename='user')
-    
-    urlpatterns = [
-        path('api/', include(router.urls)),
-    ]
-    
-    # Esto genera automáticamente las rutas:
-    # POST   /api/users/                    → create()
-    # GET    /api/users/                    → list()
-    # GET    /api/users/{id}/               → retrieve()
-    # PUT    /api/users/{id}/               → update()
-    # PATCH  /api/users/{id}/               → partial_update()
-    # DELETE /api/users/{id}/               → destroy()
-    # POST   /api/users/{id}/deactivate/   → deactivate() [custom action]
-
-💡 Los routers de DRF generan las URLs automáticamente siguiendo convenciones REST.
+Defines REST API routes for the users-service.
 """
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenRefreshView
-from .views import HealthCheckView, AuthViewSet
 
-# Router para ViewSets
+from .views import HealthCheckView, AuthViewSet, CookieTokenRefreshView
+
+# Router for ViewSets
 router = DefaultRouter()
-
-# Registrar AuthViewSet
-# Las rutas create() se mapean a POST /api/auth/
 router.register(r'auth', AuthViewSet, basename='auth')
 
 urlpatterns = [
-    # Health check endpoint
+    # Health check
     path('health/', HealthCheckView.as_view(), name='health-check'),
-    
-    # Auth endpoints
+
+    # Auth endpoints (router-generated)
     path('', include(router.urls)),
-    
-    # Ruta custom para login (usando action)
+
+    # Custom login route (action mapping)
     path('auth/login/', AuthViewSet.as_view({'post': 'login'}), name='auth-login'),
-    path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    # Me endpoint — requires authentication (cookie-based)
+    path('auth/me/', AuthViewSet.as_view({'get': 'me'}), name='auth-me'),
+
+    # Logout endpoint — clears cookies
+    path('auth/logout/', AuthViewSet.as_view({'post': 'logout'}), name='auth-logout'),
+
+    # Token refresh — reads refresh_token from cookie
+    path('auth/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),
 ]
 

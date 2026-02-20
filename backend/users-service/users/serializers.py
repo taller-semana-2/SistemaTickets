@@ -1,66 +1,38 @@
 """
-users/serializers.py
+users/serializers.py — Presentation Layer (Serialization)
 
-📋 CAPA DE PRESENTACIÓN - Serialización
-
-🎯 PROPÓSITO:
-Transforma datos entre JSON (HTTP) y objetos Python.
-
-📐 ESTRUCTURA:
-- Un serializer por cada operación de API
-- Valida INPUT desde el cliente
-- Formatea OUTPUT hacia el cliente
-- NO contiene lógica de negocio
-
-✅ EJEMPLO de lo que DEBE ir aquí:
-    from rest_framework import serializers
-    
-    class CreateUserSerializer(serializers.Serializer):
-        '''Serializer para crear un usuario (INPUT)'''
-        email = serializers.EmailField(required=True)
-        username = serializers.CharField(min_length=3, max_length=50, required=True)
-        password = serializers.CharField(min_length=8, write_only=True, required=True)
-    
-    class UserSerializer(serializers.Serializer):
-        '''Serializer para representar un usuario (OUTPUT)'''
-        id = serializers.CharField(read_only=True)
-        email = serializers.EmailField()
-        username = serializers.CharField()
-        is_active = serializers.BooleanField()
-        
-        # NO incluimos password en el output por seguridad
-    
-    class DeactivateUserSerializer(serializers.Serializer):
-        '''Serializer para desactivar un usuario'''
-        reason = serializers.CharField(max_length=200, required=True)
-
-💡 Los serializers son el "traductor" entre HTTP/JSON y tu aplicación.
-   Hacen validaciones básicas, NO validaciones de negocio (esas van en el dominio).
+Transforms data between JSON (HTTP) and Python objects.
+One serializer per API operation.
+Validates INPUT from the client, formats OUTPUT to the client.
+Does NOT contain business logic.
 """
 
 from rest_framework import serializers
 
 
 class RegisterUserSerializer(serializers.Serializer):
-    """Serializer para registrar un nuevo usuario (INPUT).
-    
-    SEGURIDAD: No se acepta campo 'role'. Todo registro público
-    crea usuarios con rol USER. El rol solo puede ser asignado
-    por un administrador autenticado.
+    """Serializer for user registration (INPUT).
+
+    SECURITY: No 'role' field accepted. Public registration always
+    creates users with USER role. Role can only be assigned by
+    an authenticated administrator.
     """
+
     email = serializers.EmailField(required=True)
     username = serializers.CharField(min_length=3, max_length=50, required=True)
     password = serializers.CharField(min_length=8, write_only=True, required=True)
 
 
 class LoginSerializer(serializers.Serializer):
-    """Serializer para login de usuario (INPUT)"""
+    """Serializer for user login (INPUT)."""
+
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True, write_only=True)
 
 
 class UserResponseSerializer(serializers.Serializer):
-    """Serializer para representar un usuario (OUTPUT)"""
+    """Serializer for user representation (OUTPUT)."""
+
     id = serializers.CharField(read_only=True)
     email = serializers.EmailField()
     username = serializers.CharField()
@@ -70,7 +42,8 @@ class UserResponseSerializer(serializers.Serializer):
 
 
 class AuthUserSerializer(serializers.Serializer):
-    """Serializer de usuario para respuestas de autenticación."""
+    """Serializer for user data in authentication responses."""
+
     id = serializers.CharField(read_only=True)
     email = serializers.EmailField()
     username = serializers.CharField()
@@ -78,13 +51,11 @@ class AuthUserSerializer(serializers.Serializer):
     is_active = serializers.BooleanField()
 
 
-class TokenPairSerializer(serializers.Serializer):
-    """Serializer de par de tokens JWT."""
-    access = serializers.CharField()
-    refresh = serializers.CharField()
-
-
 class AuthResponseSerializer(serializers.Serializer):
-    """Serializer de respuesta para login/registro con auto-login."""
+    """Serializer for login/register response.
+
+    NOTE: Tokens are no longer included in the response body.
+    They are set as HttpOnly cookies by the view layer.
+    """
+
     user = AuthUserSerializer()
-    tokens = TokenPairSerializer()
