@@ -52,3 +52,26 @@ class Ticket(models.Model):
         help_text="ID del usuario que creó el ticket (referencia lógica, no FK)"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class TicketResponse(models.Model):
+    """Respuesta de administrador a un ticket.
+
+    Persiste las respuestas creadas a través del AddTicketResponseUseCase.
+    El PK autogenerado se usa como response_id en el evento TicketResponseAdded.
+    """
+
+    ticket = models.ForeignKey(
+        Ticket,
+        on_delete=models.CASCADE,
+        related_name="responses",
+    )
+    admin_id = models.CharField(max_length=255)
+    text = models.TextField(max_length=2000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Response #{self.pk} on Ticket #{self.ticket_id}"
