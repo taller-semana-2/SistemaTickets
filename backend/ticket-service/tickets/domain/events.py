@@ -5,7 +5,6 @@ Los eventos son inmutables y representan algo que ya ocurrió.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 
 @dataclass(frozen=True)

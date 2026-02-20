@@ -243,6 +243,7 @@ class AddTicketResponseUseCase:
     1. Obtener el ticket del repositorio
     2. Aplicar la operación de dominio (add_response)
     3. Persistir el cambio
+    4. Generar y publicar eventos de dominio
     """
 
     def __init__(
