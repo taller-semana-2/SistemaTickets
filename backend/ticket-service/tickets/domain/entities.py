@@ -208,19 +208,34 @@ class Ticket:
         )
         self._domain_events.append(event)
     
+    def _validate_can_add_response(self) -> None:
+        """
+        Valida que el ticket permita agregar una respuesta.
+
+        Regla de negocio R7: Solo se pueden agregar respuestas a tickets
+        en estados OPEN o IN_PROGRESS. Un ticket CLOSED no acepta respuestas.
+
+        Raises:
+            TicketAlreadyClosed: Si el ticket está en estado CLOSED
+        """
+        if self.status == self.CLOSED:
+            raise TicketAlreadyClosed(self.id)
+
     def add_response(self, text: str, admin_id: str) -> None:
         """
         Agrega una respuesta de admin al ticket.
+
+        Regla de negocio R7: Solo tickets en estado OPEN o IN_PROGRESS
+        pueden recibir respuestas. Tickets en estado CLOSED son rechazados.
 
         Args:
             text: Texto de la respuesta
             admin_id: ID del admin que responde
 
         Raises:
-            TicketAlreadyClosed: Si el ticket está cerrado
+            TicketAlreadyClosed: Si el ticket está en estado CLOSED
         """
-        if self.status == self.CLOSED:
-            raise TicketAlreadyClosed(self.id)
+        self._validate_can_add_response()
     
     def collect_domain_events(self) -> List[DomainEvent]:
         """
