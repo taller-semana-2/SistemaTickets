@@ -144,7 +144,12 @@ class CreateNotificationFromResponseUseCase:
         # 1. Validar schema del evento
         self._validate_schema(command)
 
-        # 2. Crear entidad de dominio
+        # 2. Idempotencia: verificar si ya existe notificación para este response_id
+        existing = self.repository.find_by_response_id(command.response_id)
+        if existing is not None:
+            return existing
+
+        # 3. Crear entidad de dominio
         notification = Notification(
             id=None,
             ticket_id=str(command.ticket_id),
@@ -153,7 +158,7 @@ class CreateNotificationFromResponseUseCase:
             read=False,
         )
 
-        # 3. Persistir
+        # 4. Persistir
         notification = self.repository.save(notification)
 
         return notification
