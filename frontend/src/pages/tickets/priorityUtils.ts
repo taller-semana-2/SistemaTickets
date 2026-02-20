@@ -1,10 +1,10 @@
 import type { TicketPriority } from '../../types/ticket';
 
 const PRIORITY_LABELS: Record<TicketPriority, string> = {
-  UNASSIGNED: 'Unassigned',
-  LOW: 'Low',
-  MEDIUM: 'Medium',
-  HIGH: 'High',
+  Unassigned: 'Sin prioridad',
+  Low: 'Baja',
+  Medium: 'Media',
+  High: 'Alta',
 };
 
 /**

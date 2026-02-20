@@ -1,11 +1,17 @@
-import type { Ticket } from '../../types/ticket';
+import { authService } from '../../services/auth';
+import type { Ticket, TicketPriority } from '../../types/ticket';
 import { formatPriority } from './priorityUtils';
+import {
+  canManagePriority,
+  ASSIGNABLE_PRIORITY_OPTIONS,
+} from './priorityRules';
 import './TicketItem.css';
 
 interface Props {
   ticket: Ticket;
   onDelete: (id: number) => void;
   onUpdateStatus: (id: number, status: Ticket['status']) => void;
+  onUpdatePriority?: (id: number, priority: TicketPriority) => void;
 }
 
 const STATUS_ORDER: Ticket['status'][] = [
@@ -14,7 +20,10 @@ const STATUS_ORDER: Ticket['status'][] = [
   'CLOSED',
 ];
 
-const TicketItem = ({ ticket, onDelete, onUpdateStatus }: Props) => {
+const TicketItem = ({ ticket, onDelete, onUpdateStatus, onUpdatePriority }: Props) => {
+  const currentUser = authService.getCurrentUser();
+  const isAdminEditable = canManagePriority(currentUser, ticket);
+
   const getNextStatus = () => {
     const currentIndex = STATUS_ORDER.indexOf(ticket.status);
     return STATUS_ORDER[(currentIndex + 1) % STATUS_ORDER.length];
@@ -67,12 +76,28 @@ const TicketItem = ({ ticket, onDelete, onUpdateStatus }: Props) => {
           {ticket.status}
         </span>
 
-        <span
-          className={`priority-badge priority-${(ticket.priority ?? 'UNASSIGNED').toLowerCase()}`}
-          title="Prioridad"
-        >
-          {formatPriority(ticket.priority)}
-        </span>
+        {isAdminEditable && onUpdatePriority ? (
+          <select
+            className={`priority-select priority-select--${(ticket.priority ?? 'Unassigned').toLowerCase()}`}
+            value={ticket.priority ?? 'Unassigned'}
+            onChange={(e) => onUpdatePriority(ticket.id, e.target.value as TicketPriority)}
+            title="Cambiar prioridad"
+          >
+            <option value="Unassigned" disabled>Sin prioridad</option>
+            {ASSIGNABLE_PRIORITY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span
+            className={`priority-badge priority-${(ticket.priority ?? 'Unassigned').toLowerCase()}`}
+            title="Prioridad"
+          >
+            {formatPriority(ticket.priority)}
+          </span>
+        )}
 
         <button
           className="delete-button"

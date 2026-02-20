@@ -15,14 +15,14 @@ import type { User } from '../../types/auth';
 /** Estados en los que un ticket admite cambio de prioridad. */
 export const EDITABLE_STATUSES: readonly Ticket['status'][] = ['OPEN', 'IN_PROGRESS'];
 
-/** Opciones de prioridad asignables (UNASSIGNED no se ofrece al usuario). */
+/** Opciones de prioridad asignables (Unassigned no se ofrece al usuario). */
 export const ASSIGNABLE_PRIORITY_OPTIONS: ReadonlyArray<{
   value: TicketPriority;
   label: string;
 }> = [
-  { value: 'LOW',    label: 'Low'    },
-  { value: 'MEDIUM', label: 'Medium' },
-  { value: 'HIGH',   label: 'High'   },
+  { value: 'Low',    label: 'Baja'  },
+  { value: 'Medium', label: 'Media' },
+  { value: 'High',   label: 'Alta'  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -50,7 +50,7 @@ export function canManagePriority(user: User | null, ticket: Ticket): boolean {
  * @param ticket - Ticket a evaluar
  */
 export function hasAssignedPriority(ticket: Ticket): boolean {
-  return ticket.priority !== undefined && ticket.priority !== 'UNASSIGNED';
+  return ticket.priority !== undefined && ticket.priority !== 'Unassigned';
 }
 
 /**
@@ -64,8 +64,8 @@ export function hasAssignedPriority(ticket: Ticket): boolean {
  * @param next   - Valor de prioridad candidato
  */
 export function isValidPriorityTransition(ticket: Ticket, next: string): boolean {
-  if (!next || next === 'UNASSIGNED') return false;
-  if (hasAssignedPriority(ticket) && next === 'UNASSIGNED') return false;
+  if (!next || next === 'Unassigned') return false;
+  if (hasAssignedPriority(ticket) && next === 'Unassigned') return false;
   return true;
 }
 

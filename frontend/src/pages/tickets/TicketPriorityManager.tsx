@@ -36,7 +36,7 @@ const TicketPriorityManager = ({ ticket, onUpdate }: TicketPriorityManagerProps)
 
   // Hooks siempre antes del return condicional (regla de hooks de React).
   const [selectedPriority, setSelectedPriority] = useState<string>(
-    ticketHasPriority ? (ticket.priority as string) : '',
+    ticketHasPriority ? (ticket.priority as string) : 'Low',
   );
   const [justification, setJustification] = useState('');
   const [apiError, setApiError]           = useState<string | null>(null);
@@ -78,11 +78,7 @@ const TicketPriorityManager = ({ ticket, onUpdate }: TicketPriorityManagerProps)
           value={selectedPriority}
           onChange={(e) => setSelectedPriority(e.target.value)}
         >
-          {!ticketHasPriority && (
-            <option value="" disabled>
-              Seleccionar prioridad
-            </option>
-          )}
+
           {ASSIGNABLE_PRIORITY_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}

@@ -1,6 +1,6 @@
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
 
-export type TicketPriority = 'UNASSIGNED' | 'LOW' | 'MEDIUM' | 'HIGH';
+export type TicketPriority = 'Unassigned' | 'Low' | 'Medium' | 'High';
 
 export interface Ticket {
   id: number;
