@@ -983,8 +983,10 @@ class TestChangeTicketPriorityUseCase:
         assert "permiso insuficiente" in str(exc_info.value).lower()
         assert existing_ticket.priority == "Low"
 
-        # Permission check happens before repository lookup
+        # Assert — rejected before lookup (permission check is first)
         mock_repo.find_by_id.assert_not_called()
+
+        # No debe persistir ni publicar eventos
         mock_repo.save.assert_not_called()
         mock_publisher.publish.assert_not_called()
 
@@ -1013,8 +1015,13 @@ class TestChangeTicketPriorityUseCase:
         with pytest.raises(TicketAlreadyClosed):
             use_case.execute(command)
 
+        # La prioridad debe permanecer sin cambios
         assert existing_ticket.priority == "Low"
+
+        # Assert — repository looked up by correct ID
         mock_repo.find_by_id.assert_called_once_with(202)
+
+        # No debe persistir ni publicar eventos
         mock_repo.save.assert_not_called()
         mock_publisher.publish.assert_not_called()
 
@@ -1022,7 +1029,7 @@ class TestChangeTicketPriorityUseCase:
         """
         DT3a: Admin cambia prioridad en ticket Open con justificación.
 
-        Scenario: Admin cambia prioridad en ticket Open con justificación (DT3)
+        Scenario: Admin cambia prioridad en ticket Open con justificación (DT3a)
           Given un ticket en estado "Open" con prioridad "Unassigned"
           And el usuario autenticado tiene rol "Administrador"
           When cambia la prioridad a "High" con justificación "Urgente por incidente"
@@ -1065,7 +1072,7 @@ class TestChangeTicketPriorityUseCase:
         """
         DT3b: Admin cambia prioridad en ticket In-Progress sin justificación.
 
-        Scenario: Admin cambia prioridad en ticket In-Progress sin justificación (DT3)
+        Scenario: Admin cambia prioridad en ticket In-Progress sin justificación (DT3b)
           Given un ticket en estado "In-Progress" con prioridad "Low"
           And el usuario autenticado tiene rol "Administrador"
           When cambia la prioridad a "Medium" sin justificación
@@ -1127,9 +1134,16 @@ class TestChangeTicketPriorityUseCase:
         with pytest.raises(InvalidPriorityTransition) as exc_info:
             use_case.execute(command)
 
+        # El mensaje debe mencionar "Unassigned"
         assert "Unassigned" in str(exc_info.value)
+
+        # La prioridad debe permanecer sin cambios
         assert existing_ticket.priority == "High"
+
+        # Assert — repository looked up by correct ID
         mock_repo.find_by_id.assert_called_once_with(205)
+
+        # No debe persistir ni publicar eventos
         mock_repo.save.assert_not_called()
         mock_publisher.publish.assert_not_called()
 
@@ -1160,6 +1174,7 @@ class TestChangeTicketPriorityUseCase:
 
         # Assert — priority remains "Unassigned"
         assert updated_ticket.priority == "Unassigned"
+        assert existing_ticket.priority == "Unassigned"
 
         # Assert — repository looked up by correct ID
         mock_repo.find_by_id.assert_called_once_with(206)
