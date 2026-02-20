@@ -99,3 +99,93 @@ class TestSSEEndpointConnectivity(TransactionTestCase):
                 break
         else:
             assert False, "No se encontró ninguna línea 'data:' en el stream SSE"
+
+
+class TestSSEHeartbeatAndFiltering(TransactionTestCase):
+    """Tests de heartbeat y filtrado por usuario para el endpoint SSE (Ciclo 2 - RED).
+    
+    Validan:
+    - Envío de heartbeat (comentario SSE) para mantener la conexión viva (EP23).
+    - Estricto aislamiento: un user_id nunca ve notificaciones de otro.
+    - El payload SSE incluye response_id para identificación en frontend.
+    """
+
+    def test_sse_stream_includes_heartbeat_comment(self):
+        """EP23: El stream debe incluir un heartbeat (comentario SSE ':ping') 
+        para evitar que la conexión sea cerrada por timeouts de infraestructura.
+        
+        Un heartbeat SSE es un comentario con formato ': ping\\n\\n' o ':heartbeat\\n\\n'.
+        """
+        response = self.client.get('/api/notifications/sse/user-123/')
+        content = b''.join(response.streaming_content).decode('utf-8')
+
+        # El stream debe contener al menos un comentario de heartbeat
+        assert ': heartbeat' in content or ':heartbeat' in content
+
+    def test_sse_stream_isolates_users_strictly(self):
+        """Solo las notificaciones del user_id solicitado deben aparecer en el stream.
+        
+        Scenario: Solo se envían notificaciones al usuario correspondiente.
+        """
+        # Arrange: notificaciones para distintos usuarios
+        Notification.objects.create(
+            ticket_id="10", message="Notif for user-A", user_id="user-A"
+        )
+        Notification.objects.create(
+            ticket_id="20", message="Notif for user-B", user_id="user-B"
+        )
+        Notification.objects.create(
+            ticket_id="30", message="Another for user-A", user_id="user-A"
+        )
+
+        # Act: conectar como user-A
+        response = self.client.get('/api/notifications/sse/user-A/')
+        content = b''.join(response.streaming_content).decode('utf-8')
+
+        # Assert: solo notificaciones de user-A
+        lines_with_data = [l for l in content.split('\n') if l.startswith('data: ')]
+        assert len(lines_with_data) == 2
+
+        for line in lines_with_data:
+            data = json.loads(line[6:])
+            assert 'user-B' not in data.get('message', '')
+
+    def test_sse_event_payload_includes_response_id(self):
+        """El payload del evento SSE debe incluir response_id para que el frontend 
+        pueda identificar la respuesta asociada.
+        
+        Referencia: USER_STORY_NOTIFICATION.md sección 6.2.
+        """
+        # Arrange: crear una notificación con response_id
+        Notification.objects.create(
+            ticket_id="42",
+            message="Nueva respuesta en Ticket #42",
+            user_id="user-123",
+            response_id=7
+        )
+
+        # Act
+        response = self.client.get('/api/notifications/sse/user-123/')
+        content = b''.join(response.streaming_content).decode('utf-8')
+
+        # Assert: el payload debe tener response_id
+        for line in content.split('\n'):
+            if line.startswith('data: '):
+                data = json.loads(line[6:])
+                assert 'response_id' in data
+                assert data['response_id'] == 7
+                break
+        else:
+            assert False, "No data line found in SSE stream"
+
+    def test_sse_no_notifications_still_sends_heartbeat(self):
+        """Incluso sin notificaciones, el stream debe enviar al menos un heartbeat.
+        
+        Esto es necesario para confirmar que la conexión SSE está activa.
+        """
+        response = self.client.get('/api/notifications/sse/user-empty/')
+        content = b''.join(response.streaming_content).decode('utf-8')
+
+        # Sin notificaciones, pero el heartbeat debe estar presente
+        assert len(content.strip()) > 0, "El stream no debe estar completamente vacío"
+        assert ': heartbeat' in content or ':heartbeat' in content
