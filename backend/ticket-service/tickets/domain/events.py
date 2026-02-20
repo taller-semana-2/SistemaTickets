@@ -37,6 +37,7 @@ class TicketPriorityChanged(DomainEvent):
     ticket_id: int
     old_priority: str
     new_priority: str
+<<<<<<< feature/sistema_de_notificaciones
 
 
 @dataclass(frozen=True)
@@ -47,3 +48,6 @@ class TicketResponseAdded(DomainEvent):
     admin_id: str
     response_text: str
     user_id: str
+=======
+    justification: Optional[str] = None
+>>>>>>> develop

@@ -21,6 +21,11 @@ class Ticket(models.Model):
         IN_PROGRESS (str): Constante de estado — ticket en proceso de resolución.
         CLOSED (str): Constante de estado — ticket cerrado/resuelto.
         STATUS_CHOICES (list): Opciones válidas para el campo ``status``.
+        PRIORITY_UNASSIGNED (str): Constante de prioridad — sin asignar.
+        PRIORITY_LOW (str): Constante de prioridad — baja.
+        PRIORITY_MEDIUM (str): Constante de prioridad — media.
+        PRIORITY_HIGH (str): Constante de prioridad — alta.
+        PRIORITY_CHOICES (list): Opciones válidas para el campo ``priority``.
         title (CharField): Título descriptivo del ticket (máx. 255 caracteres).
         description (TextField): Descripción detallada del problema o solicitud.
         status (CharField): Estado actual del ticket; por defecto ``OPEN``.
@@ -28,6 +33,9 @@ class Ticket(models.Model):
             lógica al servicio de usuarios (no FK), permitiendo independencia
             entre bases de datos de microservicios.
         created_at (DateTimeField): Fecha y hora de creación (auto-generada).
+        priority (CharField): Prioridad del ticket; por defecto ``Unassigned``.
+        priority_justification (TextField): Justificación opcional del cambio
+            de prioridad. Puede ser ``None`` si no se ha proporcionado.
     """
 
     OPEN = "OPEN"
@@ -38,6 +46,18 @@ class Ticket(models.Model):
         (OPEN, "Open"),
         (IN_PROGRESS, "In Progress"),
         (CLOSED, "Closed"),
+    ]
+
+    PRIORITY_UNASSIGNED = "Unassigned"
+    PRIORITY_LOW = "Low"
+    PRIORITY_MEDIUM = "Medium"
+    PRIORITY_HIGH = "High"
+
+    PRIORITY_CHOICES = [
+        (PRIORITY_UNASSIGNED, "Unassigned"),
+        (PRIORITY_LOW, "Low"),
+        (PRIORITY_MEDIUM, "Medium"),
+        (PRIORITY_HIGH, "High"),
     ]
 
     title = models.CharField(max_length=255)
@@ -52,6 +72,7 @@ class Ticket(models.Model):
         help_text="ID del usuario que creó el ticket (referencia lógica, no FK)"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+<<<<<<< feature/sistema_de_notificaciones
 
 
 class TicketResponse(models.Model):
@@ -75,3 +96,16 @@ class TicketResponse(models.Model):
 
     def __str__(self):
         return f"Response #{self.pk} on Ticket #{self.ticket_id}"
+=======
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default=PRIORITY_UNASSIGNED,
+        help_text="Prioridad del ticket asignada por administrador",
+    )
+    priority_justification = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Justificación opcional del cambio de prioridad",
+    )
+>>>>>>> develop

@@ -128,6 +128,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.db import connection
 
 from .application.use_cases import (
@@ -143,7 +144,7 @@ from .infrastructure.event_publisher import RabbitMQEventPublisher
 from .serializers import (
     RegisterUserSerializer,
     LoginSerializer,
-    UserResponseSerializer
+    AuthResponseSerializer
 )
 from .domain.exceptions import (
     UserAlreadyExists,
@@ -193,12 +194,20 @@ class AuthViewSet(viewsets.ViewSet):
     - POST /api/auth/register/ - Registrar un nuevo usuario
     - POST /api/auth/login/ - Autenticar un usuario
     """
+
+    permission_classes = [IsAuthenticated]
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Inyección de dependencias
         self.repository = DjangoUserRepository()
         self.event_publisher = RabbitMQEventPublisher()
+
+    def get_permissions(self):
+        """Permite acceso público solo a register y login."""
+        if self.action in ('create', 'login'):
+            return [AllowAny()]
+        return super().get_permissions()
     
     def create(self, request):
         """
@@ -215,7 +224,6 @@ class AuthViewSet(viewsets.ViewSet):
                 email=serializer.validated_data['email'],
                 username=serializer.validated_data['username'],
                 password=serializer.validated_data['password'],
-                role=serializer.validated_data.get('role', 'USER')
             )
             
             use_case = RegisterUserUseCase(
@@ -223,16 +231,23 @@ class AuthViewSet(viewsets.ViewSet):
                 event_publisher=self.event_publisher
             )
             
-            user = use_case.execute(command)
+            auth_result = use_case.execute(command)
+            user = auth_result['user']
+            tokens = auth_result['tokens']
             
-            # 3. Serializar output
-            output_serializer = UserResponseSerializer({
-                'id': user.id,
-                'email': user.email,
-                'username': user.username,
-                'role': user.role.value,
-                'is_active': user.is_active,
-                'created_at': user.created_at
+            # 3. Serializar output con contrato de autenticación
+            output_serializer = AuthResponseSerializer({
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'username': user.username,
+                    'role': user.role.value,
+                    'is_active': user.is_active,
+                },
+                'tokens': {
+                    'access': tokens['access'],
+                    'refresh': tokens['refresh'],
+                }
             })
             
             return Response(output_serializer.data, status=status.HTTP_201_CREATED)
@@ -270,16 +285,23 @@ class AuthViewSet(viewsets.ViewSet):
             )
             
             use_case = LoginUseCase(repository=self.repository)
-            user = use_case.execute(command)
+            auth_result = use_case.execute(command)
+            user = auth_result['user']
+            tokens = auth_result['tokens']
             
-            # 3. Serializar output (incluye role)
-            output_serializer = UserResponseSerializer({
-                'id': user.id,
-                'email': user.email,
-                'username': user.username,
-                'role': user.role.value,
-                'is_active': user.is_active,
-                'created_at': user.created_at
+            # 3. Serializar output con contrato de autenticación
+            output_serializer = AuthResponseSerializer({
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'username': user.username,
+                    'role': user.role.value,
+                    'is_active': user.is_active,
+                },
+                'tokens': {
+                    'access': tokens['access'],
+                    'refresh': tokens['refresh'],
+                }
             })
             
             return Response(output_serializer.data, status=status.HTTP_200_OK)

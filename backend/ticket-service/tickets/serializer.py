@@ -14,8 +14,13 @@ class TicketSerializer(serializers.ModelSerializer):
 
     Convierte instancias de :class:`~tickets.models.Ticket` a/desde
     representaciones JSON. Expone **todos** los campos del modelo:
-    ``id``, ``title``, ``description``, ``status``, ``user_id`` y
-    ``created_at``.
+    ``id``, ``title``, ``description``, ``status``, ``user_id``,
+    ``created_at``, ``priority`` y ``priority_justification``.
+
+    Los campos ``priority`` y ``priority_justification`` son de **solo
+    lectura**: se incluyen en las respuestas pero se ignoran en
+    operaciones de creación/actualización convencionales.  Solo pueden
+    modificarse a través del endpoint dedicado de priorización.
 
     Note:
         Utiliza ``fields = "__all__"`` para exponer la totalidad de los
@@ -26,6 +31,7 @@ class TicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ticket
         fields = "__all__"
+<<<<<<< feature/sistema_de_notificaciones
 
 
 class TicketResponseSerializer(serializers.ModelSerializer):
@@ -54,3 +60,6 @@ class TicketResponseSerializer(serializers.ModelSerializer):
         model = TicketResponse
         fields: list[str] = ["id", "ticket", "admin_id", "text", "created_at"]
         read_only_fields: list[str] = ["id", "ticket", "created_at"]
+=======
+        read_only_fields = ("priority", "priority_justification")
+>>>>>>> develop

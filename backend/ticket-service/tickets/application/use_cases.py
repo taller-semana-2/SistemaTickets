@@ -214,7 +214,8 @@ class ChangeTicketPriorityUseCase:
             raise ValueError(f"Ticket {command.ticket_id} no encontrado")
         
         # 2. Aplicar cambio de prioridad (reglas de negocio en la entidad)
-        ticket.change_priority(command.new_priority)
+        justification = getattr(command, "justification", None)
+        ticket.change_priority(command.new_priority, justification=justification)
         
         # 3. Persistir el cambio
         ticket = self.repository.save(ticket)

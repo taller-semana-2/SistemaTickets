@@ -15,7 +15,25 @@ from .exceptions import TicketAlreadyClosed, InvalidPriorityTransition, InvalidT
 class Ticket:
     """
     Entidad de dominio Ticket.
-    Representa un ticket con sus reglas de negocio encapsuladas.
+    
+    Representa un ticket de soporte con todas sus propiedades y reglas de negocio.
+    La entidad encapsula la lógica de dominio para cambios de estado y prioridad,
+    garantizando que solo se ejecuten transiciones válidas.
+    
+    Estados: OPEN → IN_PROGRESS → CLOSED (sólo en este orden)
+    Prioridades: Unassigned (por defecto), Low, Medium, High
+    
+    Atributos:
+        id: Identificador único del ticket (None antes de persistir)
+        title: Título descriptivo del ticket (no vacío ni espacios)
+        description: Descripción detallada del problema (no vacía ni espacios)
+        status: Estado actual (OPEN, IN_PROGRESS, CLOSED)
+        user_id: Identificador del usuario que reportó el ticket
+        created_at: Timestamp de creación del ticket
+        priority: Prioridad actual (Unassigned, Low, Medium, High). Default: Unassigned
+        priority_justification: Justificación opcional del cambio de prioridad.
+                               Se almacena cuando se asigna una justificación.
+                               Disponible en null si no se proporcionó justificación.
     """
     
     # Estados válidos del ticket
@@ -40,6 +58,9 @@ class Ticket:
         PRIORITY_HIGH
     ]
     
+    # Longitud máxima permitida para la justificación de cambio de prioridad
+    MAX_JUSTIFICATION_LENGTH = 255
+    
     # Atributos de la entidad
     id: Optional[int]
     title: str
@@ -48,6 +69,7 @@ class Ticket:
     user_id: str
     created_at: datetime
     priority: str = "Unassigned"  # Prioridad por defecto: Unassigned
+    priority_justification: Optional[str] = None  # Justificación del cambio de prioridad
     
     # Lista de eventos de dominio generados por cambios en la entidad
     _domain_events: List[DomainEvent] = field(default_factory=list, init=False, repr=False)
@@ -57,6 +79,16 @@ class Ticket:
         if self.status not in [self.OPEN, self.IN_PROGRESS, self.CLOSED]:
             raise ValueError(f"Estado inválido: {self.status}")
     
+    def _ensure_not_closed(self) -> None:
+        """
+        Verifica que el ticket no esté cerrado.
+
+        Raises:
+            TicketAlreadyClosed: Si el ticket está en estado CLOSED
+        """
+        if self.status == self.CLOSED:
+            raise TicketAlreadyClosed(self.id)
+
     def _validate_state_transition(self, new_status: str) -> None:
         """
         Valida que la transición de estado sea válida.
@@ -112,8 +144,7 @@ class Ticket:
             raise ValueError(f"Estado inválido: {new_status}")
         
         # Regla: No se puede cambiar el estado de un ticket cerrado
-        if self.status == self.CLOSED:
-            raise TicketAlreadyClosed(self.id)
+        self._ensure_not_closed()
         
         # Idempotencia: Si el estado es el mismo, no hacer nada
         if self.status == new_status:
@@ -171,25 +202,65 @@ class Ticket:
                 "no se puede volver a Unassigned una vez asignada otra prioridad"
             )
     
-    def change_priority(self, new_priority: str) -> None:
+    def _validate_justification_length(self, justification: Optional[str]) -> None:
+        """
+        Valida que la justificación no exceda la longitud máxima permitida.
+        
+        Regla: La justificación de cambio de prioridad no puede superar
+        MAX_JUSTIFICATION_LENGTH (255) caracteres.
+        
+        Args:
+            justification: Justificación a validar (None y cadena vacía son válidos)
+            
+        Raises:
+            ValueError: Si la justificación excede MAX_JUSTIFICATION_LENGTH caracteres
+        """
+        if justification and len(justification) > self.MAX_JUSTIFICATION_LENGTH:
+            raise ValueError(
+                f"La justificación excede la longitud máxima de "
+                f"{self.MAX_JUSTIFICATION_LENGTH} caracteres"
+            )
+    
+    def change_priority(self, new_priority: str, justification: Optional[str] = None) -> None:
         """
         Cambia la prioridad del ticket aplicando reglas de negocio.
         
+        Procesa el cambio de prioridad del ticket en múltiples pasos:
+        1. Valida que la nueva prioridad sea un valor permitido
+        2. Aplican idempotencia: si la prioridad es igual, no hace cambios
+        3. Valida que la transición sea permitida según reglas de negocio
+        4. Actualiza la prioridad y la justificación (si se proporciona)
+        5. Genera un evento de dominio TicketPriorityChanged para ser publicado
+        
         Reglas de negocio (MVP):
-        1. Solo valores válidos: Unassigned, Low, Medium, High
-        2. No se puede volver a Unassigned una vez asignada otra prioridad
-        3. El cambio es idempotente (si ya tiene esa prioridad, no hace nada)
-        4. Cada cambio válido genera un evento de dominio TicketPriorityChanged
+        1. Un ticket en estado CLOSED no permite cambios de prioridad
+        2. Solo valores válidos: Unassigned, Low, Medium, High
+        3. No se puede volver a Unassigned una vez asignada otra prioridad
+        4. El cambio es idempotente (si ya tiene esa prioridad, no hace nada)
+        5. Cada cambio válido genera un evento de dominio TicketPriorityChanged
+        6. La justificación no puede exceder 255 caracteres (MAX_JUSTIFICATION_LENGTH)
         
         Args:
-            new_priority: Nueva prioridad del ticket
+            new_priority: Nueva prioridad del ticket (Unassigned, Low, Medium, High).
+            justification: Justificación opcional del cambio de prioridad. Se almacena
+                          tal como se proporciona y es visible en el detalle del ticket.
+                          Puede ser None si el cambio no requiere justificación.
+                          Máximo 255 caracteres.
             
         Raises:
+            TicketAlreadyClosed: Si el ticket está cerrado
             InvalidPriorityTransition: Si la transición no es válida
-            ValueError: Si la prioridad no es un valor válido
+            ValueError: Si la prioridad no es un valor válido o si la
+                       justificación excede 255 caracteres
         """
+        # Regla: No se puede cambiar la prioridad de un ticket cerrado
+        self._ensure_not_closed()
+        
         # Validar que la nueva prioridad sea válida
         self._validate_priority_value(new_priority)
+        
+        # Validar longitud de la justificación
+        self._validate_justification_length(justification)
         
         # Idempotencia: Si la prioridad es la misma, no hacer nada
         if self.priority == new_priority:
@@ -201,13 +272,15 @@ class Ticket:
         # Cambiar prioridad
         old_priority = self.priority
         self.priority = new_priority
+        self.priority_justification = justification
         
         # Generar evento de dominio
         event = TicketPriorityChanged(
             occurred_at=datetime.now(),
             ticket_id=self.id,
             old_priority=old_priority,
-            new_priority=new_priority
+            new_priority=new_priority,
+            justification=justification
         )
         self._domain_events.append(event)
     

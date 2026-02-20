@@ -42,15 +42,15 @@ from rest_framework import serializers
 
 
 class RegisterUserSerializer(serializers.Serializer):
-    """Serializer para registrar un nuevo usuario (INPUT)"""
+    """Serializer para registrar un nuevo usuario (INPUT).
+    
+    SEGURIDAD: No se acepta campo 'role'. Todo registro público
+    crea usuarios con rol USER. El rol solo puede ser asignado
+    por un administrador autenticado.
+    """
     email = serializers.EmailField(required=True)
     username = serializers.CharField(min_length=3, max_length=50, required=True)
     password = serializers.CharField(min_length=8, write_only=True, required=True)
-    role = serializers.ChoiceField(
-        choices=['ADMIN', 'USER'],
-        default='USER',
-        required=False
-    )
 
 
 class LoginSerializer(serializers.Serializer):
@@ -67,3 +67,24 @@ class UserResponseSerializer(serializers.Serializer):
     role = serializers.CharField()
     is_active = serializers.BooleanField()
     created_at = serializers.DateTimeField(read_only=True)
+
+
+class AuthUserSerializer(serializers.Serializer):
+    """Serializer de usuario para respuestas de autenticación."""
+    id = serializers.CharField(read_only=True)
+    email = serializers.EmailField()
+    username = serializers.CharField()
+    role = serializers.CharField()
+    is_active = serializers.BooleanField()
+
+
+class TokenPairSerializer(serializers.Serializer):
+    """Serializer de par de tokens JWT."""
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+
+
+class AuthResponseSerializer(serializers.Serializer):
+    """Serializer de respuesta para login/registro con auto-login."""
+    user = AuthUserSerializer()
+    tokens = TokenPairSerializer()
