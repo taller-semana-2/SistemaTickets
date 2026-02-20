@@ -221,6 +221,22 @@ class Ticket:
         if self.status == self.CLOSED:
             raise TicketAlreadyClosed(self.id)
 
+    def _validate_response_text(self, text: str) -> None:
+        """
+        Valida que el texto de la respuesta no esté vacío.
+
+        Regla de negocio R8: El texto de la respuesta es obligatorio.
+        Se rechaza texto None, cadena vacía o solo espacios en blanco.
+
+        Args:
+            text: Texto de la respuesta a validar
+
+        Raises:
+            EmptyResponseError: Si el texto está vacío o es None
+        """
+        if not text or not text.strip():
+            raise EmptyResponseError()
+
     def add_response(self, text: str, admin_id: str) -> None:
         """
         Agrega una respuesta de admin al ticket.
@@ -238,8 +254,7 @@ class Ticket:
             EmptyResponseError: Si el texto está vacío o es None
         """
         self._validate_can_add_response()
-        if not text or not text.strip():
-            raise EmptyResponseError()
+        self._validate_response_text(text)
     
     def collect_domain_events(self) -> List[DomainEvent]:
         """
