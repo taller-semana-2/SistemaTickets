@@ -248,8 +248,15 @@ class AddTicketResponseUseCase:
     def __init__(
         self,
         repository: TicketRepository,
-        event_publisher: EventPublisher,
+        event_publisher: EventPublisher
     ):
+        """
+        Inyección de dependencias (DIP).
+        
+        Args:
+            repository: Repositorio para persistencia
+            event_publisher: Publicador de eventos
+        """
         self.repository = repository
         self.event_publisher = event_publisher
 
@@ -268,13 +275,16 @@ class AddTicketResponseUseCase:
             TicketAlreadyClosed: Si el ticket está cerrado
             EmptyResponseError: Si el texto está vacío
         """
+        # 1. Obtener el ticket
         ticket = self.repository.find_by_id(command.ticket_id)
 
         if not ticket:
             raise ValueError(f"Ticket {command.ticket_id} no encontrado")
 
+        # 2. Aplicar la operación de dominio (add_response)
         ticket.add_response(command.text, command.admin_id)
 
+        # 3. Persistir el cambio
         self.repository.save(ticket)
 
         return ticket
