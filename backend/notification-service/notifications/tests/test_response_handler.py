@@ -215,3 +215,43 @@ class TestCreateNotificationFromResponseUseCase:
         repository.find_by_response_id.assert_called_once_with(7)
         repository.save.assert_called_once()
         assert result.message == "Nueva respuesta en Ticket #42"
+
+    # ─────────────────────────────────────────────
+    # Gap B (#76): user_id y response_id en la entidad
+    # ─────────────────────────────────────────────
+
+    def test_notification_has_user_id_from_command(self):
+        """#76 Gap B: La notificación persistida debe tener user_id
+        tomado del comando, para que el destinatario quede registrado."""
+        # Arrange
+        repository = Mock()
+        repository.find_by_response_id.return_value = None
+        repository.save.side_effect = lambda n: n
+
+        use_case = CreateNotificationFromResponseUseCase(repository=repository)
+        command = self._build_valid_command()
+
+        # Act
+        use_case.execute(command)
+
+        # Assert
+        saved_notification = repository.save.call_args[0][0]
+        assert saved_notification.user_id == "user-123"
+
+    def test_notification_has_response_id_from_command(self):
+        """#76 Gap B: La notificación persistida debe tener response_id
+        tomado del comando, para garantizar idempotencia a nivel de entidad."""
+        # Arrange
+        repository = Mock()
+        repository.find_by_response_id.return_value = None
+        repository.save.side_effect = lambda n: n
+
+        use_case = CreateNotificationFromResponseUseCase(repository=repository)
+        command = self._build_valid_command()
+
+        # Act
+        use_case.execute(command)
+
+        # Assert
+        saved_notification = repository.save.call_args[0][0]
+        assert saved_notification.response_id == 7
