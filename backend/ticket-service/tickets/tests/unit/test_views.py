@@ -5,12 +5,14 @@ Prueban la integración HTTP con casos de uso.
 
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
+from rest_framework.request import Request
+from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 from rest_framework import status
 from unittest.mock import Mock, patch
 
 from tickets.models import Ticket as DjangoTicket
 from tickets.domain.entities import Ticket as DomainTicket
-from tickets.domain.exceptions import TicketAlreadyClosed, InvalidTicketData
+from tickets.domain.exceptions import TicketAlreadyClosed, InvalidTicketData, InvalidPriorityTransition, DomainException
 from tickets.views import TicketViewSet
 from tickets.serializer import TicketSerializer
 from datetime import datetime
@@ -22,6 +24,10 @@ class TestTicketViewSet(TestCase):
     def setUp(self):
         """Configurar para cada test."""
         self.factory = APIRequestFactory()
+
+    def _make_drf_request(self, wsgi_request):
+        """Envuelve un WSGIRequest en un DRF Request para llamadas directas a métodos del ViewSet."""
+        return Request(wsgi_request, parsers=[JSONParser(), FormParser(), MultiPartParser()])
     
     def test_viewset_uses_create_use_case_on_create(self):
         """ViewSet ejecuta CreateTicketUseCase al crear ticket."""
@@ -164,6 +170,186 @@ class TestTicketViewSet(TestCase):
         response = viewset.change_status(request, pk=django_ticket.id)
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    # ── Phase 5: change_priority endpoint tests (RED) ──────────────────
+
+    def test_change_priority_endpoint_executes_use_case(self):
+        """Endpoint change_priority ejecuta ChangePriorityUseCase."""
+        django_ticket = DjangoTicket.objects.create(
+            title="Test",
+            description="Desc",
+            status="OPEN"
+        )
+
+        viewset = TicketViewSet()
+
+        mock_use_case = Mock()
+        mock_domain_ticket = DomainTicket(
+            id=django_ticket.id,
+            title="Test",
+            description="Desc",
+            status=DomainTicket.OPEN,
+            user_id="1",
+            created_at=django_ticket.created_at,
+            priority="High"
+        )
+        mock_use_case.execute.return_value = mock_domain_ticket
+        viewset.change_priority_use_case = mock_use_case
+
+        request = self._make_drf_request(self.factory.patch('', {"priority": "High", "user_role": "Administrador"}))
+
+        response = viewset.change_priority(request, pk=django_ticket.id)
+
+        mock_use_case.execute.assert_called_once()
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_change_priority_requires_priority_field(self):
+        """Endpoint change_priority requiere el campo 'priority'."""
+        django_ticket = DjangoTicket.objects.create(
+            title="Test",
+            description="Desc",
+            status="OPEN"
+        )
+
+        viewset = TicketViewSet()
+
+        request = self._make_drf_request(self.factory.patch('', {}))
+
+        response = viewset.change_priority(request, pk=django_ticket.id)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "requerido" in str(response.data['error']).lower()
+
+    def test_change_priority_handles_ticket_already_closed(self):
+        """ViewSet maneja TicketAlreadyClosed en change_priority y devuelve 400."""
+        django_ticket = DjangoTicket.objects.create(
+            title="Test",
+            description="Desc",
+            status="CLOSED"
+        )
+
+        viewset = TicketViewSet()
+
+        mock_use_case = Mock()
+        mock_use_case.execute.side_effect = TicketAlreadyClosed(django_ticket.id)
+        viewset.change_priority_use_case = mock_use_case
+
+        request = self._make_drf_request(self.factory.patch('', {"priority": "High", "user_role": "Administrador"}))
+
+        response = viewset.change_priority(request, pk=django_ticket.id)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "cerrado" in str(response.data['error']).lower()
+
+    def test_change_priority_handles_invalid_priority_transition(self):
+        """ViewSet maneja InvalidPriorityTransition y devuelve 400."""
+        django_ticket = DjangoTicket.objects.create(
+            title="Test",
+            description="Desc",
+            status="OPEN"
+        )
+
+        viewset = TicketViewSet()
+
+        mock_use_case = Mock()
+        mock_use_case.execute.side_effect = InvalidPriorityTransition(
+            "High", "Unassigned", "no se puede volver"
+        )
+        viewset.change_priority_use_case = mock_use_case
+
+        request = self._make_drf_request(self.factory.patch('', {"priority": "Unassigned", "user_role": "Administrador"}))
+
+        response = viewset.change_priority(request, pk=django_ticket.id)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_change_priority_handles_permission_denied(self):
+        """ViewSet maneja DomainException de permiso y devuelve 403."""
+        django_ticket = DjangoTicket.objects.create(
+            title="Test",
+            description="Desc",
+            status="OPEN"
+        )
+
+        viewset = TicketViewSet()
+
+        mock_use_case = Mock()
+        mock_use_case.execute.side_effect = DomainException("Permiso insuficiente")
+        viewset.change_priority_use_case = mock_use_case
+
+        request = self._make_drf_request(self.factory.patch('', {"priority": "High", "user_role": "Usuario"}))
+
+        response = viewset.change_priority(request, pk=django_ticket.id)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_change_priority_passes_justification_to_use_case(self):
+        """Endpoint change_priority pasa justificación al caso de uso."""
+        django_ticket = DjangoTicket.objects.create(
+            title="Test",
+            description="Desc",
+            status="OPEN"
+        )
+
+        viewset = TicketViewSet()
+
+        mock_use_case = Mock()
+        mock_domain_ticket = DomainTicket(
+            id=django_ticket.id,
+            title="Test",
+            description="Desc",
+            status=DomainTicket.OPEN,
+            user_id="1",
+            created_at=django_ticket.created_at,
+            priority="High",
+            priority_justification="Urgente"
+        )
+        mock_use_case.execute.return_value = mock_domain_ticket
+        viewset.change_priority_use_case = mock_use_case
+
+        request = self._make_drf_request(self.factory.patch('', {
+            "priority": "High",
+            "justification": "Urgente",
+            "user_role": "Administrador"
+        }))
+
+        response = viewset.change_priority(request, pk=django_ticket.id)
+
+        mock_use_case.execute.assert_called_once()
+        call_args = mock_use_case.execute.call_args
+        command = call_args[0][0] if call_args[0] else call_args[1].get('command')
+        assert command.justification == "Urgente"
+
+    def test_change_priority_returns_updated_priority_in_response(self):
+        """Endpoint change_priority devuelve prioridad actualizada en respuesta."""
+        django_ticket = DjangoTicket.objects.create(
+            title="Test",
+            description="Desc",
+            status="OPEN"
+        )
+
+        viewset = TicketViewSet()
+
+        mock_use_case = Mock()
+        mock_domain_ticket = DomainTicket(
+            id=django_ticket.id,
+            title="Test",
+            description="Desc",
+            status=DomainTicket.OPEN,
+            user_id="1",
+            created_at=django_ticket.created_at,
+            priority="High",
+            priority_justification="Urgente"
+        )
+        mock_use_case.execute.return_value = mock_domain_ticket
+        viewset.change_priority_use_case = mock_use_case
+
+        request = self._make_drf_request(self.factory.patch('', {"priority": "High", "user_role": "Administrador"}))
+
+        response = viewset.change_priority(request, pk=django_ticket.id)
+
+        assert response.data['priority'] == "High"
+        assert response.data.get('priority_justification') == "Urgente"
 
 
 class TestTicketSerializer(TestCase):
