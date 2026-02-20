@@ -50,7 +50,7 @@ const AdminResponseForm = ({ ticketId, onResponseCreated }: AdminResponseFormPro
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={MAX_RESPONSE_LENGTH}
-          placeholder="Escribe tu respuesta al usuario..."
+          placeholder="Escribe tu respuesta..."
           rows={4}
         />
         <div className="admin-response-footer">
