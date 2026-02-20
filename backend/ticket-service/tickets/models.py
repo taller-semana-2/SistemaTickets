@@ -72,7 +72,17 @@ class Ticket(models.Model):
         help_text="ID del usuario que creó el ticket (referencia lógica, no FK)"
     )
     created_at = models.DateTimeField(auto_now_add=True)
-<<<<<<< feature/sistema_de_notificaciones
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default=PRIORITY_UNASSIGNED,
+        help_text="Prioridad del ticket asignada por administrador",
+    )
+    priority_justification = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Justificación opcional del cambio de prioridad",
+    )
 
 
 class TicketResponse(models.Model):
@@ -96,16 +106,3 @@ class TicketResponse(models.Model):
 
     def __str__(self):
         return f"Response #{self.pk} on Ticket #{self.ticket_id}"
-=======
-    priority = models.CharField(
-        max_length=20,
-        choices=PRIORITY_CHOICES,
-        default=PRIORITY_UNASSIGNED,
-        help_text="Prioridad del ticket asignada por administrador",
-    )
-    priority_justification = models.TextField(
-        blank=True,
-        null=True,
-        help_text="Justificación opcional del cambio de prioridad",
-    )
->>>>>>> develop

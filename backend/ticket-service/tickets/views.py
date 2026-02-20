@@ -16,13 +16,10 @@ from .application.use_cases import (
     CreateTicketCommand,
     ChangeTicketStatusUseCase,
     ChangeTicketStatusCommand,
-<<<<<<< feature/sistema_de_notificaciones
     AddTicketResponseUseCase,
     AddTicketResponseCommand,
-=======
     ChangeTicketPriorityUseCase,
-    ChangeTicketPriorityCommand
->>>>>>> develop
+    ChangeTicketPriorityCommand,
 )
 from .infrastructure.repository import DjangoTicketRepository
 from .infrastructure.event_publisher import RabbitMQEventPublisher
@@ -30,11 +27,8 @@ from .domain.exceptions import (
     DomainException,
     TicketAlreadyClosed,
     InvalidTicketData,
-<<<<<<< feature/sistema_de_notificaciones
     EmptyResponseError,
-=======
-    InvalidPriorityTransition
->>>>>>> develop
+    InvalidPriorityTransition,
 )
 
 
@@ -74,11 +68,11 @@ class TicketViewSet(viewsets.ModelViewSet):
             repository=self.repository,
             event_publisher=self.event_publisher
         )
-<<<<<<< feature/sistema_de_notificaciones
         self.add_response_use_case = AddTicketResponseUseCase(
-=======
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
         self.change_priority_use_case = ChangeTicketPriorityUseCase(
->>>>>>> develop
             repository=self.repository,
             event_publisher=self.event_publisher
         )

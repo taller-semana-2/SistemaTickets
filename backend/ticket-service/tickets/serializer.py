@@ -31,7 +31,7 @@ class TicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ticket
         fields = "__all__"
-<<<<<<< feature/sistema_de_notificaciones
+        read_only_fields = ("priority", "priority_justification")
 
 
 class TicketResponseSerializer(serializers.ModelSerializer):
@@ -60,6 +60,3 @@ class TicketResponseSerializer(serializers.ModelSerializer):
         model = TicketResponse
         fields: list[str] = ["id", "ticket", "admin_id", "text", "created_at"]
         read_only_fields: list[str] = ["id", "ticket", "created_at"]
-=======
-        read_only_fields = ("priority", "priority_justification")
->>>>>>> develop

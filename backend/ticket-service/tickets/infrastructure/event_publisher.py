@@ -10,11 +10,7 @@ from typing import Dict, Any
 import pika
 
 from ..domain.event_publisher import EventPublisher
-<<<<<<< feature/sistema_de_notificaciones
-from ..domain.events import DomainEvent, TicketCreated, TicketStatusChanged, TicketResponseAdded
-=======
-from ..domain.events import DomainEvent, TicketCreated, TicketPriorityChanged, TicketStatusChanged
->>>>>>> develop
+from ..domain.events import DomainEvent, TicketCreated, TicketStatusChanged, TicketPriorityChanged, TicketResponseAdded
 
 
 class RabbitMQEventPublisher(EventPublisher):
@@ -68,7 +64,15 @@ class RabbitMQEventPublisher(EventPublisher):
                 "new_status": event.new_status,
                 "occurred_at": event.occurred_at.isoformat()
             }
-<<<<<<< feature/sistema_de_notificaciones
+        elif isinstance(event, TicketPriorityChanged):
+            return {
+                "event_type": "ticket.priority_changed",
+                "ticket_id": event.ticket_id,
+                "old_priority": event.old_priority,
+                "new_priority": event.new_priority,
+                "justification": event.justification,
+                "occurred_at": event.occurred_at.isoformat()
+            }
         elif isinstance(event, TicketResponseAdded):
             return {
                 "event_type": "ticket.response_added",
@@ -77,15 +81,6 @@ class RabbitMQEventPublisher(EventPublisher):
                 "admin_id": event.admin_id,
                 "response_text": event.response_text,
                 "user_id": event.user_id,
-=======
-        elif isinstance(event, TicketPriorityChanged):
-            return {
-                "event_type": "ticket.priority_changed",
-                "ticket_id": event.ticket_id,
-                "old_priority": event.old_priority,
-                "new_priority": event.new_priority,
-                "justification": event.justification,
->>>>>>> develop
                 "occurred_at": event.occurred_at.isoformat()
             }
         else:
