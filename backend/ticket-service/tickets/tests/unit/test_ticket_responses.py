@@ -9,7 +9,7 @@ import pytest
 from datetime import datetime
 
 from tickets.domain.entities import Ticket
-from tickets.domain.exceptions import TicketAlreadyClosed, EmptyResponseError
+from tickets.domain.exceptions import TicketAlreadyClosed, EmptyResponseError, ResponseTooLongError
 
 
 class TestTicketResponses:
@@ -92,3 +92,95 @@ class TestTicketResponses:
                 text=None,
                 admin_id="admin-001",
             )
+
+    # --- Tests de límite de 2000 caracteres (Issue #77) ---
+
+    def test_add_response_accepts_exactly_2000_chars(self):
+        """
+        Regla de negocio: El texto de la respuesta puede tener hasta 2000 caracteres.
+
+        Scenario: Respuesta con exactamente 2000 caracteres es aceptada
+          Given un ticket en estado OPEN
+          When admin envía respuesta con exactamente 2000 caracteres
+          Then la respuesta es aceptada sin error
+        """
+        ticket = Ticket(
+            id=50,
+            title="Ticket de prueba longitud",
+            description="Desc",
+            status=Ticket.OPEN,
+            user_id="user-300",
+            created_at=datetime(2026, 2, 20, 10, 0, 0),
+        )
+
+        text_2000 = "a" * 2000
+
+        # Should NOT raise any exception
+        ticket.add_response(text=text_2000, admin_id="admin-001")
+
+    def test_add_response_rejects_2001_chars(self):
+        """
+        Regla de negocio: El texto de la respuesta NO puede exceder 2000 caracteres.
+
+        Scenario: Respuesta con 2001 caracteres es rechazada
+          Given un ticket en estado OPEN
+          When admin envía respuesta con 2001 caracteres
+          Then el sistema rechaza la acción con ResponseTooLongError
+        """
+        ticket = Ticket(
+            id=51,
+            title="Ticket de prueba exceso",
+            description="Desc",
+            status=Ticket.OPEN,
+            user_id="user-301",
+            created_at=datetime(2026, 2, 20, 10, 0, 0),
+        )
+
+        text_2001 = "b" * 2001
+
+        with pytest.raises(ResponseTooLongError):
+            ticket.add_response(text=text_2001, admin_id="admin-001")
+
+    def test_add_response_accepts_short_text(self):
+        """
+        Regla de negocio: Textos cortos válidos son aceptados.
+
+        Scenario: Respuesta con texto corto "OK" es aceptada
+          Given un ticket en estado OPEN
+          When admin envía respuesta con texto "OK"
+          Then la respuesta es aceptada sin error
+        """
+        ticket = Ticket(
+            id=52,
+            title="Ticket respuesta corta",
+            description="Desc",
+            status=Ticket.OPEN,
+            user_id="user-302",
+            created_at=datetime(2026, 2, 20, 10, 0, 0),
+        )
+
+        # Should NOT raise any exception
+        ticket.add_response(text="OK", admin_id="admin-001")
+
+    def test_response_too_long_error_message_includes_limit(self):
+        """
+        La excepción ResponseTooLongError debe incluir el límite de 2000
+        en su mensaje para informar al usuario.
+        """
+        ticket = Ticket(
+            id=53,
+            title="Ticket msg error",
+            description="Desc",
+            status=Ticket.OPEN,
+            user_id="user-303",
+            created_at=datetime(2026, 2, 20, 10, 0, 0),
+        )
+
+        text_too_long = "c" * 2500
+
+        with pytest.raises(ResponseTooLongError) as exc_info:
+            ticket.add_response(text=text_too_long, admin_id="admin-001")
+
+        assert "2000" in str(exc_info.value), (
+            "El mensaje de error debe indicar el límite de 2000 caracteres"
+        )
