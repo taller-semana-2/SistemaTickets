@@ -99,3 +99,7 @@ logs/
 *.tmp
 *.temp
 .cache/
+
+.github/agents/*
+.github/skills/*
+TEST_PLAN2.md

@@ -718,6 +718,126 @@ class TestChangeTicketPriorityUseCase:
         assert event.new_priority == "High"
         assert event.justification == "Urgente por SLA"
 
+    def test_first_priority_assignment_from_unassigned_to_low(self):
+        """
+        BVA4: Primera asignación de prioridad desde Unassigned es permitida.
+
+        Scenario: Primera asignación de prioridad desde Unassigned es permitida (BVA4)
+          Given un ticket en estado "Open" con prioridad "Unassigned"
+          And el usuario autenticado tiene rol "Administrador"
+          When cambia la prioridad a "Low"
+          Then la prioridad del ticket se actualiza a "Low"
+          And se genera un evento TicketPriorityChanged con old_priority="Unassigned" y new_priority="Low"
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=14,
+                status=Ticket.OPEN,
+                priority="Unassigned",
+                new_priority="Low",
+                user_role="Administrador",
+            )
+        )
+
+        # Act
+        updated_ticket = use_case.execute(command)
+
+        # Assert — priority updated from Unassigned to Low
+        assert updated_ticket.priority == "Low"
+
+        # Assert — repository save was called
+        mock_repo.find_by_id.assert_called_once_with(14)
+        mock_repo.save.assert_called_once()
+
+        # Assert — TicketPriorityChanged event published with correct data
+        mock_publisher.publish.assert_called_once()
+        event = mock_publisher.publish.call_args[0][0]
+        assert isinstance(event, TicketPriorityChanged)
+        assert event.ticket_id == 14
+        assert event.old_priority == "Unassigned"
+        assert event.new_priority == "Low"
+
+    def test_cannot_revert_from_low_to_unassigned(self):
+        """
+        BVA5: No se puede retroceder de Low a Unassigned.
+
+        Scenario: No se puede retroceder de Low a Unassigned (BVA5)
+          Given un ticket en estado "Open" con prioridad "Low"
+          And el usuario autenticado tiene rol "Administrador"
+          When intenta cambiar la prioridad a "Unassigned"
+          Then el sistema bloquea la acción
+          And se lanza una excepción InvalidPriorityTransition
+          And la prioridad del ticket permanece en "Low"
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=15,
+                status=Ticket.OPEN,
+                priority="Low",
+                new_priority="Unassigned",
+                user_role="Administrador",
+            )
+        )
+
+        # Act & Assert
+        with pytest.raises(InvalidPriorityTransition) as exc_info:
+            use_case.execute(command)
+
+        # El mensaje debe mencionar "Unassigned"
+        assert "Unassigned" in str(exc_info.value)
+
+        # La prioridad debe permanecer sin cambios
+        assert existing_ticket.priority == "Low"
+
+        # Assert — repository looked up by correct ID
+        mock_repo.find_by_id.assert_called_once_with(15)
+
+        # No debe persistir ni publicar eventos
+        mock_repo.save.assert_not_called()
+        mock_publisher.publish.assert_not_called()
+
+    def test_change_between_non_unassigned_priorities(self):
+        """
+        BVA6: Cambio entre prioridades válidas non-Unassigned es permitido.
+
+        Scenario: Cambio entre prioridades válidas non-Unassigned es permitido (BVA6)
+          Given un ticket en estado "Open" con prioridad "High"
+          And el usuario autenticado tiene rol "Administrador"
+          When cambia la prioridad a "Low"
+          Then la prioridad del ticket se actualiza a "Low"
+          And se genera un evento TicketPriorityChanged con old_priority="High" y new_priority="Low"
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=16,
+                status=Ticket.OPEN,
+                priority="High",
+                new_priority="Low",
+                user_role="Administrador",
+            )
+        )
+
+        # Act
+        updated_ticket = use_case.execute(command)
+
+        # Assert — priority updated from High to Low
+        assert updated_ticket.priority == "Low"
+
+        # Assert — repository save was called
+        mock_repo.find_by_id.assert_called_once_with(16)
+        mock_repo.save.assert_called_once()
+
+        # Assert — TicketPriorityChanged event published with correct data
+        mock_publisher.publish.assert_called_once()
+        event = mock_publisher.publish.call_args[0][0]
+        assert isinstance(event, TicketPriorityChanged)
+        assert event.ticket_id == 16
+        assert event.old_priority == "High"
+        assert event.new_priority == "Low"
+
     def test_empty_justification_is_accepted_bva7(self):
         """
         BVA7: Justificación vacía (0 caracteres) es aceptada.
@@ -830,7 +950,6 @@ class TestChangeTicketPriorityUseCase:
         # No debe persistir ni publicar eventos
         mock_repo.save.assert_not_called()
         mock_publisher.publish.assert_not_called()
-
 
 class TestChangeTicketStatusValidation:
     """Tests para validación de transiciones de estado inválidas."""
