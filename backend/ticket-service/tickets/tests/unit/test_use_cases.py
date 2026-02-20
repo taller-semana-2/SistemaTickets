@@ -723,10 +723,11 @@ class TestChangeTicketPriorityUseCase:
         BVA7: Justificación vacía (0 caracteres) es aceptada.
 
         Scenario: Justificación vacía es aceptada (BVA7)
-          Given un ticket en estado "Open"
+          Given un ticket en estado "Open" con prioridad "Unassigned"
           And el usuario autenticado tiene rol "Administrador"
           When cambia la prioridad a "High" con justificación de 0 caracteres
-          Then la prioridad se actualiza exitosamente
+          Then la prioridad del ticket se actualiza a "High"
+          And se genera un evento de dominio "TicketPriorityChanged"
         """
         # Arrange
         existing_ticket, use_case, command, mock_repo, mock_publisher = (
@@ -745,19 +746,25 @@ class TestChangeTicketPriorityUseCase:
 
         # Assert
         assert updated_ticket.priority == "High"
+        assert updated_ticket.priority_justification == ""
+        mock_repo.find_by_id.assert_called_once_with(107)
         mock_repo.save.assert_called_once()
         mock_publisher.publish.assert_called_once()
+        event = mock_publisher.publish.call_args[0][0]
+        assert isinstance(event, TicketPriorityChanged)
+        assert event.ticket_id == 107
 
     @pytest.mark.parametrize("length", [254, 255])
     def test_justification_within_limit_is_accepted_bva8_bva9(self, length: int):
         """
         BVA8/BVA9: Justificación de 254 y 255 caracteres es aceptada.
 
-        Scenario: Justificación dentro del límite es aceptada (BVA8/BVA9)
-          Given un ticket en estado "Open"
+        Scenario Outline: Justificación dentro del límite es aceptada (BVA8/BVA9)
+          Given un ticket en estado "Open" con prioridad "Unassigned"
           And el usuario autenticado tiene rol "Administrador"
           When cambia la prioridad a "Medium" con una justificación de <length> caracteres
-          Then la prioridad se actualiza exitosamente
+          Then la prioridad del ticket se actualiza a "Medium"
+          And se genera un evento de dominio "TicketPriorityChanged"
         """
         # Arrange
         existing_ticket, use_case, command, mock_repo, mock_publisher = (
@@ -777,19 +784,26 @@ class TestChangeTicketPriorityUseCase:
         # Assert
         assert updated_ticket.priority == "Medium"
         assert len(updated_ticket.priority_justification) == length
+        mock_repo.find_by_id.assert_called_once_with(108)
         mock_repo.save.assert_called_once()
         mock_publisher.publish.assert_called_once()
+        event = mock_publisher.publish.call_args[0][0]
+        assert isinstance(event, TicketPriorityChanged)
+        assert event.ticket_id == 108
 
     def test_justification_exceeding_max_length_is_rejected_bva10(self):
         """
         BVA10: Justificación que excede 255 caracteres es rechazada.
 
         Scenario: Justificación que excede el límite de caracteres es rechazada (BVA10)
-          Given un ticket en estado "Open"
+          Given un ticket en estado "Open" con prioridad "Unassigned"
           And el usuario autenticado tiene rol "Administrador"
           When intenta cambiar la prioridad a "Medium" con una justificación de 256 caracteres
           Then el sistema rechaza la acción
           And se informa que la justificación excede la longitud máxima
+          And la prioridad del ticket permanece en "Unassigned"
+          And no se persiste ningún cambio
+          And no se publica ningún evento de dominio
         """
         # Arrange
         existing_ticket, use_case, command, mock_repo, mock_publisher = (
@@ -806,6 +820,12 @@ class TestChangeTicketPriorityUseCase:
         # Act & Assert
         with pytest.raises(ValueError, match="justificación.*longitud máxima"):
             use_case.execute(command)
+
+        # La prioridad debe permanecer sin cambios
+        assert existing_ticket.priority == "Unassigned"
+
+        # Assert — repository looked up by correct ID
+        mock_repo.find_by_id.assert_called_once_with(110)
 
         # No debe persistir ni publicar eventos
         mock_repo.save.assert_not_called()

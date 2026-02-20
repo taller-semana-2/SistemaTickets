@@ -203,8 +203,11 @@ class Ticket:
         """
         Valida que la justificación no exceda la longitud máxima permitida.
         
+        Regla: La justificación de cambio de prioridad no puede superar
+        MAX_JUSTIFICATION_LENGTH (255) caracteres.
+        
         Args:
-            justification: Justificación a validar
+            justification: Justificación a validar (None y cadena vacía son válidos)
             
         Raises:
             ValueError: Si la justificación excede MAX_JUSTIFICATION_LENGTH caracteres
@@ -232,17 +235,20 @@ class Ticket:
         3. No se puede volver a Unassigned una vez asignada otra prioridad
         4. El cambio es idempotente (si ya tiene esa prioridad, no hace nada)
         5. Cada cambio válido genera un evento de dominio TicketPriorityChanged
+        6. La justificación no puede exceder 255 caracteres (MAX_JUSTIFICATION_LENGTH)
         
         Args:
             new_priority: Nueva prioridad del ticket (Unassigned, Low, Medium, High).
             justification: Justificación opcional del cambio de prioridad. Se almacena
                           tal como se proporciona y es visible en el detalle del ticket.
                           Puede ser None si el cambio no requiere justificación.
+                          Máximo 255 caracteres.
             
         Raises:
             TicketAlreadyClosed: Si el ticket está cerrado
             InvalidPriorityTransition: Si la transición no es válida
-            ValueError: Si la prioridad no es un valor válido
+            ValueError: Si la prioridad no es un valor válido o si la
+                       justificación excede 255 caracteres
         """
         # Regla: No se puede cambiar la prioridad de un ticket cerrado
         self._ensure_not_closed()
