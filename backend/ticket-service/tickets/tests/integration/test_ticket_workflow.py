@@ -17,13 +17,17 @@ from tickets.domain.entities import Ticket as DomainTicket
 from tickets.domain.exceptions import (
     TicketAlreadyClosed,
     InvalidTicketStateTransition,
-    InvalidTicketData
+    InvalidTicketData,
+    InvalidPriorityTransition,
+    DomainException
 )
 from tickets.application.use_cases import (
     CreateTicketUseCase,
     CreateTicketCommand,
     ChangeTicketStatusUseCase,
-    ChangeTicketStatusCommand
+    ChangeTicketStatusCommand,
+    ChangeTicketPriorityUseCase,
+    ChangeTicketPriorityCommand
 )
 from tickets.infrastructure.repository import DjangoTicketRepository
 from tickets.infrastructure.event_publisher import RabbitMQEventPublisher
@@ -521,3 +525,185 @@ class TestCompleteTicketWorkflow(TestCase):
         # Note: Current implementation doesn't rollback on publish failure
         # This test documents current behavior
         # In production, consider implementing transaction boundaries
+
+    # ==================== Priority Workflow Integration ====================
+
+    def test_complete_priority_change_workflow(self):
+        """RED-6.1: Flujo completo — crear ticket + cambiar prioridad persiste y publica evento."""
+        # 1. Crear ticket
+        create_use_case = CreateTicketUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        ticket = create_use_case.execute(
+            CreateTicketCommand(title="Priority Workflow", description="Integration test")
+        )
+
+        # 2. Cambiar prioridad
+        change_priority_use_case = ChangeTicketPriorityUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        command = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="High",
+        )
+        command.user_role = "Administrador"
+        command.justification = "Urgente"
+
+        updated_ticket = change_priority_use_case.execute(command)
+
+        # 3. Verificar entidad de dominio
+        assert updated_ticket.priority == "High"
+        assert updated_ticket.priority_justification == "Urgente"
+
+        # 4. Verificar persistencia en BD
+        db_ticket = DjangoTicket.objects.get(pk=ticket.id)
+        assert db_ticket.priority == "High"
+        assert db_ticket.priority_justification == "Urgente"
+
+        # 5. Verificar evento TicketPriorityChanged publicado
+        priority_events = [
+            c for c in self.event_publisher.publish.call_args_list
+            if c[0][0].__class__.__name__ == "TicketPriorityChanged"
+        ]
+        assert len(priority_events) == 1
+        event = priority_events[0][0][0]
+        assert event.ticket_id == ticket.id
+        assert event.old_priority == "Unassigned"
+        assert event.new_priority == "High"
+        assert event.justification == "Urgente"
+
+    def test_priority_change_on_closed_ticket_raises_error(self):
+        """RED-6.2: Flujo — cambiar prioridad de ticket cerrado falla con TicketAlreadyClosed."""
+        # 1. Crear ticket
+        create_use_case = CreateTicketUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        ticket = create_use_case.execute(
+            CreateTicketCommand(title="Close Then Priority", description="Test")
+        )
+
+        # 2. Cerrar ticket: OPEN → IN_PROGRESS → CLOSED
+        change_status_use_case = ChangeTicketStatusUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        change_status_use_case.execute(
+            ChangeTicketStatusCommand(ticket_id=ticket.id, new_status=DomainTicket.IN_PROGRESS)
+        )
+        change_status_use_case.execute(
+            ChangeTicketStatusCommand(ticket_id=ticket.id, new_status=DomainTicket.CLOSED)
+        )
+
+        # 3. Intentar cambiar prioridad en ticket cerrado
+        change_priority_use_case = ChangeTicketPriorityUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        command = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="High",
+        )
+        command.user_role = "Administrador"
+
+        with self.assertRaises(TicketAlreadyClosed):
+            change_priority_use_case.execute(command)
+
+    def test_priority_change_with_non_admin_raises_error(self):
+        """RED-6.3: Flujo — cambiar prioridad con usuario no admin falla con DomainException."""
+        # 1. Crear ticket
+        create_use_case = CreateTicketUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        ticket = create_use_case.execute(
+            CreateTicketCommand(title="Non Admin Priority", description="Test")
+        )
+
+        # 2. Intentar cambiar prioridad con rol "Usuario"
+        change_priority_use_case = ChangeTicketPriorityUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        command = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="High",
+        )
+        command.user_role = "Usuario"
+
+        with self.assertRaises(DomainException) as ctx:
+            change_priority_use_case.execute(command)
+
+        assert "permiso insuficiente" in str(ctx.exception).lower()
+
+    def test_revert_to_unassigned_raises_error_in_workflow(self):
+        """RED-6.4: Flujo — reversión a Unassigned falla con InvalidPriorityTransition."""
+        # 1. Crear ticket
+        create_use_case = CreateTicketUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        ticket = create_use_case.execute(
+            CreateTicketCommand(title="Revert Priority", description="Test")
+        )
+
+        # 2. Asignar prioridad High
+        change_priority_use_case = ChangeTicketPriorityUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        command_high = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="High",
+        )
+        command_high.user_role = "Administrador"
+        change_priority_use_case.execute(command_high)
+
+        # 3. Intentar revertir a Unassigned
+        command_unassigned = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="Unassigned",
+        )
+        command_unassigned.user_role = "Administrador"
+
+        with self.assertRaises(InvalidPriorityTransition):
+            change_priority_use_case.execute(command_unassigned)
+
+    def test_idempotent_priority_change_no_extra_event(self):
+        """RED-6.5: Flujo — idempotencia: mismo valor no publica evento adicional."""
+        # 1. Crear ticket
+        create_use_case = CreateTicketUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        ticket = create_use_case.execute(
+            CreateTicketCommand(title="Idempotent Priority", description="Test")
+        )
+
+        # 2. Cambiar prioridad a High (primera vez)
+        change_priority_use_case = ChangeTicketPriorityUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        command = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="High",
+        )
+        command.user_role = "Administrador"
+        change_priority_use_case.execute(command)
+
+        # Registrar el conteo de llamadas después del primer cambio
+        call_count_after_first = self.event_publisher.publish.call_count
+
+        # 3. Cambiar prioridad a High (segunda vez — idempotente)
+        command2 = ChangeTicketPriorityCommand(
+            ticket_id=ticket.id,
+            new_priority="High",
+        )
+        command2.user_role = "Administrador"
+        change_priority_use_case.execute(command2)
+
+        # Verificar que NO se publicó evento adicional
+        assert self.event_publisher.publish.call_count == call_count_after_first
