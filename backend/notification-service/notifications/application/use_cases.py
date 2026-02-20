@@ -163,6 +163,8 @@ class CreateNotificationFromResponseUseCase:
             message=f"Nueva respuesta en Ticket #{command.ticket_id}",
             sent_at=datetime.now(),
             read=False,
+            user_id=str(command.user_id),
+            response_id=command.response_id,
         )
 
         # 4. Persistir

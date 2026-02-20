@@ -33,7 +33,16 @@ django.setup()
 
 import pika
 import json
+import logging
 from notifications.models import Notification
+from notifications.application.use_cases import (
+    CreateNotificationFromResponseUseCase,
+    CreateNotificationFromResponseCommand,
+)
+from notifications.infrastructure.repository import DjangoNotificationRepository
+from notifications.domain.exceptions import InvalidEventSchema
+
+logger = logging.getLogger(__name__)
 
 # Configuración RabbitMQ desde variables de entorno
 RABBIT_HOST = os.environ.get('RABBITMQ_HOST')
@@ -64,10 +73,32 @@ def callback(ch, method, properties, body):
         y el mensaje quedará pendiente en la cola.
     """
     data = json.loads(body)
-    ticket_id = data.get('ticket_id')
-    # Crear una notificación básica en la BD
-    Notification.objects.create(ticket_id=str(ticket_id), message=f"Ticket {ticket_id} creado")
-    print(f"[NOTIFICATION] Notification created for ticket {ticket_id}")
+    event_type = data.get('event_type', '')
+
+    if event_type == 'ticket.response_added':
+        try:
+            repository = DjangoNotificationRepository()
+            use_case = CreateNotificationFromResponseUseCase(repository=repository)
+            command = CreateNotificationFromResponseCommand(
+                event_type=data.get('event_type'),
+                ticket_id=data.get('ticket_id'),
+                response_id=data.get('response_id'),
+                admin_id=data.get('admin_id'),
+                response_text=data.get('response_text'),
+                user_id=data.get('user_id'),
+                timestamp=data.get('timestamp'),
+            )
+            use_case.execute(command)
+            print(f"[NOTIFICATION] Notification created for response on ticket {data.get('ticket_id')}")
+        except InvalidEventSchema as e:
+            logger.error("Invalid event schema for ticket.response_added: %s", e)
+        except Exception as e:
+            logger.error("Error processing ticket.response_added: %s", e)
+    else:
+        ticket_id = data.get('ticket_id')
+        Notification.objects.create(ticket_id=str(ticket_id), message=f"Ticket {ticket_id} creado")
+        print(f"[NOTIFICATION] Notification created for ticket {ticket_id}")
+
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
 
