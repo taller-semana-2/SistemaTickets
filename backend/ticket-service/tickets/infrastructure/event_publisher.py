@@ -10,7 +10,7 @@ from typing import Dict, Any
 import pika
 
 from ..domain.event_publisher import EventPublisher
-from ..domain.events import DomainEvent, TicketCreated, TicketPriorityChanged, TicketStatusChanged
+from ..domain.events import DomainEvent, TicketCreated, TicketStatusChanged, TicketPriorityChanged, TicketResponseAdded
 
 
 class RabbitMQEventPublisher(EventPublisher):
@@ -71,6 +71,16 @@ class RabbitMQEventPublisher(EventPublisher):
                 "old_priority": event.old_priority,
                 "new_priority": event.new_priority,
                 "justification": event.justification,
+                "occurred_at": event.occurred_at.isoformat()
+            }
+        elif isinstance(event, TicketResponseAdded):
+            return {
+                "event_type": "ticket.response_added",
+                "ticket_id": event.ticket_id,
+                "response_id": event.response_id,
+                "admin_id": event.admin_id,
+                "response_text": event.response_text,
+                "user_id": event.user_id,
                 "occurred_at": event.occurred_at.isoformat()
             }
         else:

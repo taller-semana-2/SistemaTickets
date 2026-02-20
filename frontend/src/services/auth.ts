@@ -1,31 +1,98 @@
-import type { User, LoginRequest, RegisterRequest, AuthResponse } from '../types/auth';
-import { usersApiClient } from './axiosConfig';
+import axios from 'axios';
+import type { User, LoginRequest, RegisterRequest, AuthResponse, TokenPair } from '../types/auth';
 
 const AUTH_STORAGE_KEY = 'ticketSystem_user';
+
+// MVP: localStorage para tokens (tech debt - migrar a HttpOnly cookies)
+const ACCESS_TOKEN_KEY = 'accessToken';
+const REFRESH_TOKEN_KEY = 'refreshToken';
+
+const authApiClient = axios.create({
+  baseURL: 'http://localhost:8003/api',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+/**
+ * Obtener access token persistido en cliente.
+ */
+export function getAccessToken(): string | null {
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
+/**
+ * Obtener refresh token persistido en cliente.
+ */
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+/**
+ * Persistir par de tokens en almacenamiento local.
+ */
+export function setTokens(tokens: TokenPair): void {
+  localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access);
+  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh);
+}
+
+/**
+ * Eliminar tokens persistidos del almacenamiento local.
+ */
+export function clearTokens(): void {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+/**
+ * Refrescar access token usando refresh token actual.
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+
+  if (!refreshToken) {
+    return null;
+  }
+
+  try {
+    const { data } = await authApiClient.post<TokenPair>('/auth/refresh/', {
+      refresh: refreshToken,
+    });
+
+    setTokens(data);
+    return data.access;
+  } catch {
+    clearTokens();
+    return null;
+  }
+}
 
 export const authService = {
   /**
    * Iniciar sesión
    */
   login: async (credentials: LoginRequest): Promise<User> => {
-    const { data } = await usersApiClient.post<AuthResponse>('/auth/login/', credentials);
+    const { data } = await authApiClient.post<AuthResponse>('/auth/login/', credentials);
     
-    // Guardar usuario en localStorage
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
+    // MVP: persistencia local de sesión (tech debt - migrar a cookies HttpOnly)
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
+    setTokens(data.tokens);
     
-    return data;
+    return data.user;
   },
 
   /**
    * Registrar nuevo usuario
    */
   register: async (userData: RegisterRequest): Promise<User> => {
-    const { data } = await usersApiClient.post<AuthResponse>('/auth/', userData);
+    const { data } = await authApiClient.post<AuthResponse>('/auth/', userData);
     
-    // Guardar usuario en localStorage después del registro
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
+    // MVP: persistencia local de sesión (tech debt - migrar a cookies HttpOnly)
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
+    setTokens(data.tokens);
     
-    return data;
+    return data.user;
   },
 
   /**
@@ -33,6 +100,7 @@ export const authService = {
    */
   logout: (): void => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    clearTokens();
   },
 
   /**
@@ -53,7 +121,7 @@ export const authService = {
    * Verificar si el usuario está autenticado
    */
   isAuthenticated: (): boolean => {
-    return authService.getCurrentUser() !== null;
+    return authService.getCurrentUser() !== null && getAccessToken() !== null;
   },
 
   /**

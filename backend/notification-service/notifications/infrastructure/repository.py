@@ -15,7 +15,26 @@ class DjangoNotificationRepository(NotificationRepository):
     Implementación del repositorio usando Django ORM.
     Traduce entre entidades de dominio y modelos de Django.
     """
-    
+
+    @staticmethod
+    def _domain_to_fields(notification: DomainNotification) -> dict:
+        """
+        Extrae los campos persistibles de una entidad de dominio.
+
+        Args:
+            notification: Entidad de dominio
+
+        Returns:
+            Diccionario con los campos y sus valores para persistencia.
+        """
+        return {
+            "ticket_id": notification.ticket_id,
+            "message": notification.message,
+            "read": notification.read,
+            "user_id": notification.user_id,
+            "response_id": notification.response_id,
+        }
+
     def save(self, notification: DomainNotification) -> DomainNotification:
         """
         Persiste una notificación en la base de datos (crear o actualizar).
@@ -26,20 +45,17 @@ class DjangoNotificationRepository(NotificationRepository):
         Returns:
             La entidad con el ID asignado
         """
+        fields = self._domain_to_fields(notification)
+
         if notification.id:
             # Actualizar notificación existente
             django_notification = DjangoNotification.objects.get(pk=notification.id)
-            django_notification.ticket_id = notification.ticket_id
-            django_notification.message = notification.message
-            django_notification.read = notification.read
-            django_notification.save(update_fields=['ticket_id', 'message', 'read'])
+            for attr, value in fields.items():
+                setattr(django_notification, attr, value)
+            django_notification.save(update_fields=list(fields.keys()))
         else:
             # Crear nueva notificación
-            django_notification = DjangoNotification.objects.create(
-                ticket_id=notification.ticket_id,
-                message=notification.message,
-                read=notification.read
-            )
+            django_notification = DjangoNotification.objects.create(**fields)
             notification.id = django_notification.id
         
         return notification
@@ -80,12 +96,13 @@ class DjangoNotificationRepository(NotificationRepository):
         Returns:
             Modelo Django
         """
+        fields = self._domain_to_fields(domain_notification)
+
         if domain_notification.id:
             try:
                 django_notification = DjangoNotification.objects.get(pk=domain_notification.id)
-                django_notification.ticket_id = domain_notification.ticket_id
-                django_notification.message = domain_notification.message
-                django_notification.read = domain_notification.read
+                for attr, value in fields.items():
+                    setattr(django_notification, attr, value)
                 return django_notification
             except DjangoNotification.DoesNotExist:
                 pass
@@ -93,12 +110,25 @@ class DjangoNotificationRepository(NotificationRepository):
         # Crear instancia sin guardar (para serialización)
         return DjangoNotification(
             id=domain_notification.id,
-            ticket_id=domain_notification.ticket_id,
-            message=domain_notification.message,
             sent_at=domain_notification.sent_at,
-            read=domain_notification.read
+            **fields,
         )
     
+    def find_by_response_id(self, response_id: int) -> Optional[DomainNotification]:
+        """
+        Busca una notificación por response_id.
+
+        Args:
+            response_id: ID de la respuesta asociada
+
+        Returns:
+            Entidad de dominio o None si no existe
+        """
+        django_notification = DjangoNotification.objects.filter(response_id=response_id).first()
+        if django_notification is None:
+            return None
+        return self._to_domain(django_notification)
+
     def _to_domain(self, django_notification: DjangoNotification) -> DomainNotification:
         """
         Convierte un modelo Django a entidad de dominio.
@@ -114,5 +144,7 @@ class DjangoNotificationRepository(NotificationRepository):
             ticket_id=django_notification.ticket_id,
             message=django_notification.message,
             sent_at=django_notification.sent_at,
-            read=django_notification.read
+            read=django_notification.read,
+            user_id=django_notification.user_id,
+            response_id=django_notification.response_id,
         )
