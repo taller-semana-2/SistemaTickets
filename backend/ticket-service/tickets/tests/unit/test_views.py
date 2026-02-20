@@ -167,11 +167,11 @@ class TestTicketViewSet(TestCase):
 
 
 class TestTicketSerializer(TestCase):
-    """Tests del serializer (sin cambios desde refactor)."""
+    """Tests del TicketSerializer: validación de campos requeridos e integración de priority."""
     
     def test_serializer_accepts_valid_data(self):
         """Serializer acepta datos válidos."""
-        data = {"title": "Test", "description": "Description"}
+        data = {"title": "Test", "description": "Description", "user_id": "1"}
         serializer = TicketSerializer(data=data)
         
         assert serializer.is_valid()
