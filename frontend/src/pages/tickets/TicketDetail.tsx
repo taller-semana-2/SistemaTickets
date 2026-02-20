@@ -169,38 +169,3 @@ const TicketDetail = () => {
 };
 
 export default TicketDetail;
-        <div className="ticket-detail-header">
-          <span className="ticket-detail-number">#{ticket.id}</span>
-          <h1 className="ticket-detail-title">{ticket.title}</h1>
-          <span className={`ticket-detail-status status-${ticket.status.toLowerCase()}`}>
-            {ticket.status}
-          </span>
-        </div>
-
-        <p className="ticket-detail-description">{ticket.description}</p>
-
-        <div className="ticket-detail-meta">
-          <span>Creado: {formatDate(ticket.created_at)}</span>
-        </div>
-      </div>
-
-      {hasAccess ? (
-        <ResponseList responses={responses} />
-      ) : (
-        <div className="access-restricted">
-          <p>Acceso restringido</p>
-        </div>
-      )}
-
-      {isAdmin && (
-        <AdminPanel
-          ticketId={ticket.id}
-          isClosed={ticket.status === 'CLOSED'}
-          onResponseCreated={appendResponse}
-        />
-      )}
-    </div>
-  );
-};
-
-export default TicketDetail;

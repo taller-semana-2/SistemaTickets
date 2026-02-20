@@ -747,6 +747,6 @@ describe('TicketDetail — HU-3.2: Formulario de respuesta (solo ADMIN, ticket n
       });
 
       expect(textarea.value).toBe('Una respuesta cualquiera');
-
+    });
   });
 });
