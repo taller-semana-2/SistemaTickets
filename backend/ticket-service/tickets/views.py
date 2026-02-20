@@ -217,29 +217,31 @@ class TicketViewSet(viewsets.ModelViewSet):
         """Crea una respuesta de administrador delegando al caso de uso.
 
         Flujo:
-        1. Valida entrada con ``TicketResponseSerializer``.
-        2. Ejecuta ``AddTicketResponseUseCase`` (reglas de dominio + evento).
-        3. Persiste ``TicketResponse`` en el modelo Django.
-        4. Retorna la respuesta creada.
-
-        Note:
-            El evento ``TicketResponseAdded`` se publica dentro del caso de
-            uso con ``response_id=0`` porque el ID real solo existe tras la
-            persistencia del modelo Django.  Esto es una limitación conocida:
-            el dominio no debe depender de infraestructura, por lo que el
-            response_id real no puede inyectarse sin refactorizar el caso de
-            uso.  Se registra como deuda técnica para resolución futura.
+        1. Valida que el solicitante tiene rol ADMIN (cabecera X-User-Role).
+        2. Valida entrada con ``TicketResponseSerializer``.
+        3. Ejecuta ``AddTicketResponseUseCase`` (reglas de dominio + evento).
+        4. Persiste ``TicketResponse`` en el modelo Django.
+        5. Retorna la respuesta creada.
 
         Args:
             request: Objeto HTTP de DRF con ``text`` y ``admin_id``.
             ticket_id: ID del ticket al que se agrega la respuesta.
 
         Returns:
-            Response 201 con la respuesta creada, o 400 ante error de dominio.
+            Response 201 con la respuesta creada, 403 si no es ADMIN,
+            o 400 ante error de dominio.
 
         Raises:
             No lanza excepciones; todas se traducen a respuestas HTTP.
         """
+        # C2 — Validar que el solicitante es ADMIN
+        user_role: str = request.META.get("HTTP_X_USER_ROLE", "")
+        if user_role.upper() != "ADMIN":
+            return Response(
+                {"error": "Solo los administradores pueden responder tickets"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = TicketResponseSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
