@@ -951,6 +951,228 @@ class TestChangeTicketPriorityUseCase:
         mock_repo.save.assert_not_called()
         mock_publisher.publish.assert_not_called()
 
+    # ──────────────────────────────────────────────────────────────
+    # Decision Table tests (DT1–DT5)
+    # ──────────────────────────────────────────────────────────────
+
+    def test_dt1_non_admin_blocked_despite_valid_state_and_priority(self):
+        """
+        DT1: Usuario no admin es bloqueado independientemente del estado y prioridad.
+
+        Scenario: Usuario no admin es bloqueado independientemente del estado y prioridad (DT1)
+          Given un ticket en estado "Open" con prioridad "Low"
+          And el usuario autenticado tiene rol "Usuario"
+          When intenta cambiar la prioridad a "High"
+          Then el sistema retorna error de permiso insuficiente
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=201,
+                status=Ticket.OPEN,
+                priority="Low",
+                new_priority="High",
+                user_role="Usuario",
+            )
+        )
+
+        # Act & Assert
+        with pytest.raises(DomainException) as exc_info:
+            use_case.execute(command)
+
+        assert "permiso insuficiente" in str(exc_info.value).lower()
+        assert existing_ticket.priority == "Low"
+
+        # Permission check happens before repository lookup
+        mock_repo.find_by_id.assert_not_called()
+        mock_repo.save.assert_not_called()
+        mock_publisher.publish.assert_not_called()
+
+    def test_dt2_admin_blocked_on_closed_ticket(self):
+        """
+        DT2: Admin bloqueado en ticket Closed aunque la prioridad destino sea válida.
+
+        Scenario: Admin bloqueado en ticket Closed aunque la prioridad destino sea válida (DT2)
+          Given un ticket en estado "Closed" con prioridad "Low"
+          And el usuario autenticado tiene rol "Administrador"
+          When intenta cambiar la prioridad a "High"
+          Then el sistema retorna error de estado no permitido
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=202,
+                status=Ticket.CLOSED,
+                priority="Low",
+                new_priority="High",
+                user_role="Administrador",
+            )
+        )
+
+        # Act & Assert
+        with pytest.raises(TicketAlreadyClosed):
+            use_case.execute(command)
+
+        assert existing_ticket.priority == "Low"
+        mock_repo.find_by_id.assert_called_once_with(202)
+        mock_repo.save.assert_not_called()
+        mock_publisher.publish.assert_not_called()
+
+    def test_dt3_admin_changes_priority_open_with_justification(self):
+        """
+        DT3a: Admin cambia prioridad en ticket Open con justificación.
+
+        Scenario: Admin cambia prioridad en ticket Open con justificación (DT3)
+          Given un ticket en estado "Open" con prioridad "Unassigned"
+          And el usuario autenticado tiene rol "Administrador"
+          When cambia la prioridad a "High" con justificación "Urgente por incidente"
+          Then la prioridad del ticket se actualiza a "High"
+          And la justificación queda registrada en el detalle del ticket
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=203,
+                status=Ticket.OPEN,
+                priority="Unassigned",
+                new_priority="High",
+                user_role="Administrador",
+            )
+        )
+        command.justification = "Urgente por incidente"
+
+        # Act
+        updated_ticket = use_case.execute(command)
+
+        # Assert — priority updated
+        assert updated_ticket.priority == "High"
+        assert updated_ticket.priority_justification == "Urgente por incidente"
+
+        # Assert — persisted
+        mock_repo.find_by_id.assert_called_once_with(203)
+        mock_repo.save.assert_called_once()
+
+        # Assert — event published with justification
+        mock_publisher.publish.assert_called_once()
+        event = mock_publisher.publish.call_args[0][0]
+        assert isinstance(event, TicketPriorityChanged)
+        assert event.ticket_id == 203
+        assert event.old_priority == "Unassigned"
+        assert event.new_priority == "High"
+        assert event.justification == "Urgente por incidente"
+
+    def test_dt3_admin_changes_priority_in_progress_without_justification(self):
+        """
+        DT3b: Admin cambia prioridad en ticket In-Progress sin justificación.
+
+        Scenario: Admin cambia prioridad en ticket In-Progress sin justificación (DT3)
+          Given un ticket en estado "In-Progress" con prioridad "Low"
+          And el usuario autenticado tiene rol "Administrador"
+          When cambia la prioridad a "Medium" sin justificación
+          Then la prioridad del ticket se actualiza a "Medium"
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=204,
+                status=Ticket.IN_PROGRESS,
+                priority="Low",
+                new_priority="Medium",
+                user_role="Administrador",
+            )
+        )
+
+        # Act
+        updated_ticket = use_case.execute(command)
+
+        # Assert — priority updated without justification
+        assert updated_ticket.priority == "Medium"
+        assert updated_ticket.priority_justification is None
+
+        # Assert — persisted
+        mock_repo.find_by_id.assert_called_once_with(204)
+        mock_repo.save.assert_called_once()
+
+        # Assert — event published without justification
+        mock_publisher.publish.assert_called_once()
+        event = mock_publisher.publish.call_args[0][0]
+        assert isinstance(event, TicketPriorityChanged)
+        assert event.ticket_id == 204
+        assert event.old_priority == "Low"
+        assert event.new_priority == "Medium"
+        assert event.justification is None
+
+    def test_dt4_admin_cannot_revert_to_unassigned(self):
+        """
+        DT4: Admin no puede volver a Unassigned desde prioridad High.
+
+        Scenario: Admin no puede volver a Unassigned desde prioridad High (DT4)
+          Given un ticket en estado "Open" con prioridad "High"
+          And el usuario autenticado tiene rol "Administrador"
+          When intenta cambiar la prioridad a "Unassigned"
+          Then el sistema retorna error indicando que no se puede volver a "Unassigned"
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=205,
+                status=Ticket.OPEN,
+                priority="High",
+                new_priority="Unassigned",
+                user_role="Administrador",
+            )
+        )
+
+        # Act & Assert
+        with pytest.raises(InvalidPriorityTransition) as exc_info:
+            use_case.execute(command)
+
+        assert "Unassigned" in str(exc_info.value)
+        assert existing_ticket.priority == "High"
+        mock_repo.find_by_id.assert_called_once_with(205)
+        mock_repo.save.assert_not_called()
+        mock_publisher.publish.assert_not_called()
+
+    def test_dt5_unassigned_to_unassigned_is_noop(self):
+        """
+        DT5: Asignar Unassigned a ticket que ya tiene Unassigned no genera cambio ni evento.
+
+        Scenario: Asignar Unassigned a ticket que ya tiene Unassigned no genera cambio ni evento (DT5)
+          Given un ticket en estado "Open" con prioridad "Unassigned"
+          And el usuario autenticado tiene rol "Administrador"
+          When intenta cambiar la prioridad a "Unassigned"
+          Then no se genera ningún cambio en la base de datos
+          And no se publica ningún evento de dominio
+        """
+        # Arrange
+        existing_ticket, use_case, command, mock_repo, mock_publisher = (
+            self._create_ticket_and_use_case(
+                ticket_id=206,
+                status=Ticket.OPEN,
+                priority="Unassigned",
+                new_priority="Unassigned",
+                user_role="Administrador",
+            )
+        )
+
+        # Act — should NOT raise
+        updated_ticket = use_case.execute(command)
+
+        # Assert — priority remains "Unassigned"
+        assert updated_ticket.priority == "Unassigned"
+
+        # Assert — repository looked up by correct ID
+        mock_repo.find_by_id.assert_called_once_with(206)
+
+        # Assert — save WAS called (use case calls save regardless of idempotency)
+        mock_repo.save.assert_called_once()
+
+        # Assert — no event published (no actual change occurred)
+        mock_publisher.publish.assert_not_called()
+
+        # Assert — no domain events collected
+        assert existing_ticket.collect_domain_events() == []
+
 class TestChangeTicketStatusValidation:
     """Tests para validación de transiciones de estado inválidas."""
     
