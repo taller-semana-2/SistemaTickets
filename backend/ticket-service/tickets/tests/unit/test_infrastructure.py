@@ -3,9 +3,11 @@ Tests de la capa de infraestructura (adaptadores).
 Prueban Repository y EventPublisher con Django.
 """
 
-from django.test import TestCase
-from unittest.mock import patch, Mock
+import json
 from datetime import datetime
+from unittest.mock import Mock, patch
+
+from django.test import TestCase
 
 from tickets.models import Ticket as DjangoTicket
 from tickets.domain.entities import Ticket as DomainTicket
@@ -166,7 +168,6 @@ class TestRabbitMQEventPublisher(TestCase):
         assert 'body' in call_kwargs
         
         # Verificar contenido del mensaje
-        import json
         body = json.loads(call_kwargs['body'])
         assert body['event_type'] == 'ticket.created'
         assert body['ticket_id'] == 123
@@ -192,7 +193,6 @@ class TestRabbitMQEventPublisher(TestCase):
         
         # Verificar mensaje
         call_kwargs = mock_channel.basic_publish.call_args[1]
-        import json
         body = json.loads(call_kwargs['body'])
         
         assert body['event_type'] == 'ticket.status_changed'
@@ -262,7 +262,6 @@ class TestRabbitMQEventPublisher(TestCase):
         publisher.publish(event)
 
         call_kwargs = mock_channel.basic_publish.call_args[1]
-        import json
         body = json.loads(call_kwargs['body'])
 
         assert body['event_type'] == 'ticket.priority_changed'
@@ -292,7 +291,6 @@ class TestRabbitMQEventPublisher(TestCase):
         publisher.publish(event)
 
         call_kwargs = mock_channel.basic_publish.call_args[1]
-        import json
         body = json.loads(call_kwargs['body'])
 
         assert body['event_type'] == 'ticket.priority_changed'
