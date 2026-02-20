@@ -8,33 +8,64 @@ Issue #50: HU-2.2, EP23
 """
 
 import json
+import logging
+from typing import Generator
 
 from django.http import StreamingHttpResponse
 
 from notifications.models import Notification
 
+logger = logging.getLogger(__name__)
 
-def _notification_stream(user_id: str):
-    """Generador que emite notificaciones en formato SSE para un usuario específico.
+
+def _format_sse_event(notification: Notification) -> str:
+    """Formatea una notificación como evento SSE estándar.
 
     Args:
-        user_id: Identificador del usuario destinatario de las notificaciones.
+        notification: Instancia del modelo Notification.
+
+    Returns:
+        Cadena con formato SSE: 'event: notification\\ndata: {json}\\n\\n'.
+    """
+    data = {
+        'id': notification.id,
+        'ticket_id': notification.ticket_id,
+        'message': notification.message,
+        'created_at': notification.sent_at.isoformat(),
+    }
+    return f"event: notification\ndata: {json.dumps(data)}\n\n"
+
+
+def _notification_stream(user_id: str) -> Generator[str, None, None]:
+    """Generador que emite notificaciones en formato SSE para un usuario.
+
+    Usa .only() para seleccionar únicamente los campos necesarios
+    y .iterator() para eficiencia de memoria en conjuntos grandes.
+
+    Args:
+        user_id: Identificador del usuario destinatario.
 
     Yields:
-        str: Eventos SSE con formato 'event: notification\\ndata: {json}\\n\\n'.
+        Eventos SSE formateados como cadenas de texto.
     """
-    notifications = Notification.objects.filter(
-        user_id=user_id
-    ).order_by('sent_at')
+    notifications = (
+        Notification.objects
+        .filter(user_id=user_id)
+        .only('id', 'ticket_id', 'message', 'sent_at', 'user_id')
+        .order_by('sent_at')
+        .iterator()
+    )
 
+    count = 0
     for notification in notifications:
-        data = {
-            'id': notification.id,
-            'ticket_id': notification.ticket_id,
-            'message': notification.message,
-            'created_at': notification.sent_at.isoformat(),
-        }
-        yield f"event: notification\ndata: {json.dumps(data)}\n\n"
+        yield _format_sse_event(notification)
+        count += 1
+
+    logger.info(
+        "SSE stream completed for user=%s, notifications_sent=%d",
+        user_id,
+        count,
+    )
 
 
 def sse_notifications_view(request, user_id: str) -> StreamingHttpResponse:
@@ -50,6 +81,8 @@ def sse_notifications_view(request, user_id: str) -> StreamingHttpResponse:
     Returns:
         StreamingHttpResponse con las notificaciones del usuario.
     """
+    logger.info("SSE connection opened for user=%s", user_id)
+
     response = StreamingHttpResponse(
         _notification_stream(user_id),
         content_type='text/event-stream',
