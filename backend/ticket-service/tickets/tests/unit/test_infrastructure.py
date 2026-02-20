@@ -3,13 +3,15 @@ Tests de la capa de infraestructura (adaptadores).
 Prueban Repository y EventPublisher con Django.
 """
 
-from django.test import TestCase
-from unittest.mock import patch, Mock
+import json
 from datetime import datetime
+from unittest.mock import Mock, patch
+
+from django.test import TestCase
 
 from tickets.models import Ticket as DjangoTicket
 from tickets.domain.entities import Ticket as DomainTicket
-from tickets.domain.events import TicketCreated, TicketStatusChanged
+from tickets.domain.events import TicketCreated, TicketStatusChanged, TicketPriorityChanged
 from tickets.infrastructure.repository import DjangoTicketRepository
 from tickets.infrastructure.event_publisher import RabbitMQEventPublisher
 
@@ -256,7 +258,6 @@ class TestRabbitMQEventPublisher(TestCase):
         assert 'body' in call_kwargs
         
         # Verificar contenido del mensaje
-        import json
         body = json.loads(call_kwargs['body'])
         assert body['event_type'] == 'ticket.created'
         assert body['ticket_id'] == 123
@@ -282,7 +283,6 @@ class TestRabbitMQEventPublisher(TestCase):
         
         # Verificar mensaje
         call_kwargs = mock_channel.basic_publish.call_args[1]
-        import json
         body = json.loads(call_kwargs['body'])
         
         assert body['event_type'] == 'ticket.status_changed'
@@ -331,6 +331,64 @@ class TestRabbitMQEventPublisher(TestCase):
             publisher.publish(event)
         
         assert "Connection failed" in str(context.exception)
+
+    @patch('tickets.infrastructure.event_publisher.pika')
+    def test_publish_ticket_priority_changed_event(self, mock_pika):
+        """Publicar evento TicketPriorityChanged envía mensaje correcto."""
+        mock_connection = Mock()
+        mock_channel = Mock()
+        mock_pika.BlockingConnection.return_value = mock_connection
+        mock_connection.channel.return_value = mock_channel
+
+        publisher = RabbitMQEventPublisher()
+        event = TicketPriorityChanged(
+            occurred_at=datetime(2026, 2, 19, 14, 30, 0),
+            ticket_id=42,
+            old_priority="Unassigned",
+            new_priority="High",
+            justification="Urgente"
+        )
+
+        publisher.publish(event)
+
+        call_kwargs = mock_channel.basic_publish.call_args[1]
+        body = json.loads(call_kwargs['body'])
+
+        assert body['event_type'] == 'ticket.priority_changed'
+        assert body['ticket_id'] == 42
+        assert body['old_priority'] == 'Unassigned'
+        assert body['new_priority'] == 'High'
+        assert body['justification'] == 'Urgente'
+        assert 'occurred_at' in body
+
+    @patch('tickets.infrastructure.event_publisher.pika')
+    def test_publish_ticket_priority_changed_event_without_justification(self, mock_pika):
+        """Publicar evento TicketPriorityChanged sin justificación envía None."""
+        mock_connection = Mock()
+        mock_channel = Mock()
+        mock_pika.BlockingConnection.return_value = mock_connection
+        mock_connection.channel.return_value = mock_channel
+
+        publisher = RabbitMQEventPublisher()
+        event = TicketPriorityChanged(
+            occurred_at=datetime(2026, 2, 19, 14, 30, 0),
+            ticket_id=99,
+            old_priority="Low",
+            new_priority="Medium",
+            justification=None
+        )
+
+        publisher.publish(event)
+
+        call_kwargs = mock_channel.basic_publish.call_args[1]
+        body = json.loads(call_kwargs['body'])
+
+        assert body['event_type'] == 'ticket.priority_changed'
+        assert body['ticket_id'] == 99
+        assert body['old_priority'] == 'Low'
+        assert body['new_priority'] == 'Medium'
+        assert body['justification'] is None
+        assert 'occurred_at' in body
 
 
 class TestTicketModel(TestCase):
