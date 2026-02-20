@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type React from 'react';
 import { ticketApi } from '../../services/ticketApi';
 import type { TicketResponse } from '../../types/ticket';
+import './AdminResponseForm.css';
 
 export const MAX_RESPONSE_LENGTH = 2000;
 

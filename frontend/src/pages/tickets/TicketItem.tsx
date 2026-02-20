@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { authService } from '../../services/auth';
 import type { Ticket, TicketPriority } from '../../types/ticket';
 import { formatDate } from '../../utils/dateFormat';
@@ -22,6 +23,7 @@ const STATUS_ORDER: Ticket['status'][] = [
 ];
 
 const TicketItem = ({ ticket, onDelete, onUpdateStatus, onUpdatePriority }: Props) => {
+  const navigate = useNavigate();
   const currentUser = authService.getCurrentUser();
   const isAdminEditable = canManagePriority(currentUser, ticket);
 
@@ -30,13 +32,36 @@ const TicketItem = ({ ticket, onDelete, onUpdateStatus, onUpdatePriority }: Prop
     return STATUS_ORDER[(currentIndex + 1) % STATUS_ORDER.length];
   };
 
-  const handleStatusClick = () => {
+  const handleStatusClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     const nextStatus = getNextStatus();
     onUpdateStatus(ticket.id, nextStatus);
   };
 
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(ticket.id);
+  };
+
+  const handlePriorityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    e.stopPropagation();
+    if (onUpdatePriority) {
+      onUpdatePriority(ticket.id, e.target.value as TicketPriority);
+    }
+  };
+
+  const handleCardClick = () => {
+    navigate(`/tickets/${ticket.id}`);
+  };
+
   return (
-    <div className="ticket-item">
+    <div
+      className="ticket-item ticket-item--clickable"
+      onClick={handleCardClick}
+      role="link"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') handleCardClick(); }}
+    >
       <div className="ticket-content">
         <div className="ticket-header">
           <span className="ticket-number">#{ticket.id}</span>
@@ -64,7 +89,8 @@ const TicketItem = ({ ticket, onDelete, onUpdateStatus, onUpdatePriority }: Prop
           <select
             className={`priority-select priority-select--${(ticket.priority ?? 'Unassigned').toLowerCase()}`}
             value={ticket.priority ?? 'Unassigned'}
-            onChange={(e) => onUpdatePriority(ticket.id, e.target.value as TicketPriority)}
+            onChange={handlePriorityChange}
+            onClick={(e) => e.stopPropagation()}
             title="Cambiar prioridad"
           >
             <option value="Unassigned" disabled>Sin prioridad</option>
@@ -85,7 +111,7 @@ const TicketItem = ({ ticket, onDelete, onUpdateStatus, onUpdatePriority }: Prop
 
         <button
           className="delete-button"
-          onClick={() => onDelete(ticket.id)}
+          onClick={handleDeleteClick}
           title="Eliminar ticket"
         >
           <span className="icon">🗑️</span>

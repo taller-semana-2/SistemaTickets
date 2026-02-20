@@ -18,6 +18,7 @@ import {
   buildPriorityPayload,
   resolvePriorityErrorMessage,
 } from './priorityRules';
+import './TicketPriorityManager.css';
 
 interface TicketPriorityManagerProps {
   /** Ticket cuya prioridad se va a gestionar. */

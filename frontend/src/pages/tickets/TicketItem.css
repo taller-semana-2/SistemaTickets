@@ -14,6 +14,10 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
+.ticket-item--clickable {
+  cursor: pointer;
+}
+
 .ticket-item:hover {
   transform: translateX(8px);
   background-color: #f8fafc;
