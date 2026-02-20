@@ -81,21 +81,29 @@ def _handle_response_added(data: dict) -> None:
 
 
 def _handle_ticket_created(data: dict) -> None:
-    """Procesa un evento ``ticket.created`` creando la notificación vía ORM.
+    """Procesa un evento o fallback creando la notificación vía ORM.
 
-    Ruta backward-compatible que persiste directamente a través del modelo
-    Django. Se utiliza para ``ticket.created`` y cualquier evento que no
-    tenga un handler dedicado.
-
-    Args:
-        data: Payload del evento ya deserializado como diccionario.
+    Interpreta el tipo de evento y construye un mensaje amigable.
     """
     ticket_id = data.get('ticket_id')
+    event_type = data.get('event_type', '')
+    
+    if event_type == 'ticket.status_changed':
+        message = f"El estado del Ticket #{ticket_id} cambió a {data.get('new_status', 'desconocido')}"
+    elif event_type == 'ticket.priority_changed':
+        message = f"La prioridad del Ticket #{ticket_id} cambió a {data.get('new_priority', 'desconocida')}"
+    elif event_type == 'ticket.created':
+        title = data.get('title', '')
+        message = f"Nuevo Ticket #{ticket_id} creado: {title}"
+    else:
+        # Fallback genérico para eventos futuros o desconocidos
+        message = f"Ticket #{ticket_id} actualizado ({event_type})"
+
     Notification.objects.create(
         ticket_id=str(ticket_id),
-        message=f"Ticket {ticket_id} creado",
+        message=message,
     )
-    logger.info("Notification created for ticket %s", ticket_id)
+    logger.info("Notification created for ticket %s: %s", ticket_id, message)
 
 
 def callback(ch, method, properties, body):
