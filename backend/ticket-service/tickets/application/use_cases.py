@@ -225,3 +225,56 @@ class ChangeTicketPriorityUseCase:
             self.event_publisher.publish(event)
         
         return ticket
+
+
+@dataclass
+class AddTicketResponseCommand:
+    """Comando: Agregar una respuesta a un ticket."""
+    ticket_id: int
+    text: str
+    admin_id: str
+
+
+class AddTicketResponseUseCase:
+    """
+    Caso de uso: Agregar una respuesta de admin a un ticket.
+
+    Responsabilidades:
+    1. Obtener el ticket del repositorio
+    2. Aplicar la operación de dominio (add_response)
+    3. Persistir el cambio
+    """
+
+    def __init__(
+        self,
+        repository: TicketRepository,
+        event_publisher: EventPublisher,
+    ):
+        self.repository = repository
+        self.event_publisher = event_publisher
+
+    def execute(self, command: AddTicketResponseCommand) -> Ticket:
+        """
+        Ejecuta el caso de uso de agregar respuesta.
+
+        Args:
+            command: Comando con ticket_id, text y admin_id
+
+        Returns:
+            El ticket actualizado
+
+        Raises:
+            ValueError: Si el ticket no existe
+            TicketAlreadyClosed: Si el ticket está cerrado
+            EmptyResponseError: Si el texto está vacío
+        """
+        ticket = self.repository.find_by_id(command.ticket_id)
+
+        if not ticket:
+            raise ValueError(f"Ticket {command.ticket_id} no encontrado")
+
+        ticket.add_response(command.text, command.admin_id)
+
+        self.repository.save(ticket)
+
+        return ticket
