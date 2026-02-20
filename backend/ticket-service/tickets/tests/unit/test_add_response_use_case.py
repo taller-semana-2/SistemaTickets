@@ -12,6 +12,7 @@ from datetime import datetime
 from tickets.domain.entities import Ticket
 from tickets.domain.repositories import TicketRepository
 from tickets.domain.event_publisher import EventPublisher
+from tickets.domain.events import TicketResponseAdded
 from tickets.domain.exceptions import TicketAlreadyClosed, EmptyResponseError
 
 from tickets.application.use_cases import (
@@ -135,3 +136,70 @@ class TestAddTicketResponseUseCase:
         # Act & Assert
         with pytest.raises(ValueError):
             use_case.execute(command)
+
+    def test_event_published_after_successful_persistence_issue39_ep13(self):
+        """EP13: Tras persistir exitosamente, se publica el evento ticket.response_added."""
+        # Arrange
+        mock_repo = Mock(spec=TicketRepository)
+        mock_publisher = Mock(spec=EventPublisher)
+
+        existing_ticket = Ticket(
+            id=42, title="Problema", description="Desc",
+            status=Ticket.OPEN, user_id="user-123",
+            created_at=datetime(2026, 2, 19, 10, 0, 0),
+        )
+        mock_repo.find_by_id.return_value = existing_ticket
+        mock_repo.save.return_value = existing_ticket
+
+        use_case = AddTicketResponseUseCase(mock_repo, mock_publisher)
+        command = AddTicketResponseCommand(
+            ticket_id=42, text="Estamos revisando tu caso", admin_id="admin-001",
+        )
+
+        # Act
+        use_case.execute(command)
+
+        # Assert — event published
+        mock_publisher.publish.assert_called_once()
+        published_event = mock_publisher.publish.call_args[0][0]
+        assert isinstance(published_event, TicketResponseAdded)
+        assert published_event.ticket_id == 42
+        assert published_event.admin_id == "admin-001"
+        assert published_event.response_text == "Estamos revisando tu caso"
+        assert published_event.user_id == "user-123"
+
+    def test_event_contract_contains_required_fields_issue39_ep15(self):
+        """EP15: El contrato del evento incluye ticket_id, response_id, admin_id, message y user_id."""
+        # Arrange
+        mock_repo = Mock(spec=TicketRepository)
+        mock_publisher = Mock(spec=EventPublisher)
+
+        existing_ticket = Ticket(
+            id=42, title="Test", description="Desc",
+            status=Ticket.IN_PROGRESS, user_id="user-456",
+            created_at=datetime(2026, 2, 19, 10, 0, 0),
+        )
+        mock_repo.find_by_id.return_value = existing_ticket
+        mock_repo.save.return_value = existing_ticket
+
+        use_case = AddTicketResponseUseCase(mock_repo, mock_publisher)
+        command = AddTicketResponseCommand(
+            ticket_id=42, text="Problema identificado", admin_id="admin-002",
+        )
+
+        # Act
+        use_case.execute(command)
+
+        # Assert — event has all required contract fields
+        published_event = mock_publisher.publish.call_args[0][0]
+        assert hasattr(published_event, 'ticket_id')
+        assert hasattr(published_event, 'admin_id')
+        assert hasattr(published_event, 'response_text')
+        assert hasattr(published_event, 'user_id')
+        assert hasattr(published_event, 'occurred_at')
+
+        # Verify values
+        assert published_event.ticket_id == 42
+        assert published_event.admin_id == "admin-002"
+        assert published_event.response_text == "Problema identificado"
+        assert published_event.user_id == "user-456"
