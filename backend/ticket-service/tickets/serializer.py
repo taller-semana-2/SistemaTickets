@@ -6,7 +6,7 @@ JSON expuestas por la API REST.
 """
 
 from rest_framework import serializers
-from .models import Ticket
+from .models import Ticket, TicketResponse
 
 
 class TicketSerializer(serializers.ModelSerializer):
@@ -26,3 +26,16 @@ class TicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ticket
         fields = "__all__"
+
+
+class TicketResponseSerializer(serializers.ModelSerializer):
+    """Serializer para respuestas de admin en tickets.
+
+    Valida: texto obligatorio, máximo 2000 caracteres, admin_id obligatorio.
+    Los campos ticket, id, created_at son de solo lectura.
+    """
+
+    class Meta:
+        model = TicketResponse
+        fields = ["id", "ticket", "admin_id", "text", "created_at"]
+        read_only_fields = ["id", "ticket", "created_at"]

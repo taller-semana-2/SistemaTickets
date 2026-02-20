@@ -8,20 +8,23 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import Ticket
-from .serializer import TicketSerializer
+from .models import Ticket, TicketResponse
+from .serializer import TicketSerializer, TicketResponseSerializer
 from .application.use_cases import (
     CreateTicketUseCase,
     CreateTicketCommand,
     ChangeTicketStatusUseCase,
-    ChangeTicketStatusCommand
+    ChangeTicketStatusCommand,
+    AddTicketResponseUseCase,
+    AddTicketResponseCommand,
 )
 from .infrastructure.repository import DjangoTicketRepository
 from .infrastructure.event_publisher import RabbitMQEventPublisher
 from .domain.exceptions import (
     DomainException,
     TicketAlreadyClosed,
-    InvalidTicketData
+    InvalidTicketData,
+    EmptyResponseError,
 )
 
 
@@ -58,6 +61,10 @@ class TicketViewSet(viewsets.ModelViewSet):
             event_publisher=self.event_publisher
         )
         self.change_status_use_case = ChangeTicketStatusUseCase(
+            repository=self.repository,
+            event_publisher=self.event_publisher
+        )
+        self.add_response_use_case = AddTicketResponseUseCase(
             repository=self.repository,
             event_publisher=self.event_publisher
         )
@@ -169,3 +176,62 @@ class TicketViewSet(viewsets.ModelViewSet):
                 {"error": f"Error al obtener tickets: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+    @action(detail=True, methods=["get", "post"], url_path="responses")
+    def responses(self, request, pk=None):
+        """
+        GET /api/tickets/{id}/responses/ — List responses (HU-1.2).
+        POST /api/tickets/{id}/responses/ — Add admin response (HU-1.1).
+        """
+        if request.method == "GET":
+            return self._list_responses(pk)
+        return self._create_response(request, pk)
+
+    def _list_responses(self, ticket_id):
+        """Lista respuestas de un ticket en orden cronológico ascendente."""
+        responses = TicketResponse.objects.filter(ticket_id=ticket_id).order_by("created_at")
+        serializer = TicketResponseSerializer(responses, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def _create_response(self, request, ticket_id):
+        """Crea una respuesta de admin invocando el caso de uso de dominio."""
+        serializer = TicketResponseSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        admin_id = serializer.validated_data.get("admin_id")
+        text = serializer.validated_data.get("text")
+
+        if not admin_id:
+            return Response(
+                {"error": "El campo admin_id es obligatorio"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            command = AddTicketResponseCommand(
+                ticket_id=int(ticket_id),
+                text=text,
+                admin_id=admin_id,
+            )
+            self.add_response_use_case.execute(command)
+
+            # Persist in Django model
+            ticket = Ticket.objects.get(pk=ticket_id)
+            response_obj = TicketResponse.objects.create(
+                ticket=ticket,
+                admin_id=admin_id,
+                text=text,
+            )
+
+            output_serializer = TicketResponseSerializer(response_obj)
+            return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+
+        except TicketAlreadyClosed as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except EmptyResponseError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except DomainException as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
