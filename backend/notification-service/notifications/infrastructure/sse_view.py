@@ -68,9 +68,10 @@ def _notification_stream(user_id: str) -> Generator[str, None, None]:
 
     # ── Paso 1: emitir notificaciones existentes ────────────────────────────
     last_seen_id = 0
+    from django.db.models import Q
     existing = (
         Notification.objects
-        .filter(user_id=user_id)
+        .filter(Q(user_id=user_id) | Q(user_id=""))
         .only('id', 'ticket_id', 'message', 'sent_at', 'user_id', 'response_id')
         .order_by('sent_at')
     )
@@ -95,9 +96,10 @@ def _notification_stream(user_id: str) -> Generator[str, None, None]:
             yield ": heartbeat\n\n"
             heartbeat_cycle = 0
 
+        from django.db.models import Q
         new_notifications = (
             Notification.objects
-            .filter(user_id=user_id, id__gt=last_seen_id)
+            .filter(Q(user_id=user_id) | Q(user_id=""), id__gt=last_seen_id)
             .only('id', 'ticket_id', 'message', 'sent_at', 'user_id', 'response_id')
             .order_by('id')
         )

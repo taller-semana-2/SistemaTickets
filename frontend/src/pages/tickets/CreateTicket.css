@@ -26,3 +26,14 @@
   margin: 0;
   font-weight: 400;
 }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem;
+  }
+
+  .create-ticket-title {
+    font-size: 1.5rem;
+  }
+}

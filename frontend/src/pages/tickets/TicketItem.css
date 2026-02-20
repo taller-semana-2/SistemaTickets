@@ -7,11 +7,14 @@
   border-left: 4px solid #6366f1;
   padding: 1.5rem;
   border-radius: 16px;
-  margin-bottom: 1rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   min-height: 180px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.ticket-item--clickable {
+  cursor: pointer;
 }
 
 .ticket-item:hover {
@@ -193,4 +196,29 @@
 
 .delete-button .icon {
   font-size: 1rem;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .ticket-item {
+    padding: 1.2rem;
+    min-height: 140px;
+  }
+
+  .ticket-item:hover {
+    transform: none;
+  }
+
+  .ticket-title {
+    font-size: 1rem;
+  }
+
+  .ticket-description {
+    font-size: 0.9rem;
+  }
+
+  .ticket-footer {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
 }

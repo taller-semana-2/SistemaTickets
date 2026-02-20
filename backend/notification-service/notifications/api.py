@@ -12,7 +12,11 @@ from .models import Notification
 from .serializers import NotificationSerializer
 from .application.use_cases import (
     MarkNotificationAsReadUseCase,
-    MarkNotificationAsReadCommand
+    MarkNotificationAsReadCommand,
+    DeleteNotificationUseCase,
+    DeleteNotificationCommand,
+    ClearAllNotificationsUseCase,
+    ClearAllNotificationsCommand
 )
 from .infrastructure.repository import DjangoNotificationRepository
 from .infrastructure.event_publisher import RabbitMQEventPublisher
@@ -54,6 +58,12 @@ class NotificationViewSet(viewsets.ModelViewSet):
             repository=self.repository,
             event_publisher=self.event_publisher
         )
+        self.delete_use_case = DeleteNotificationUseCase(
+            repository=self.repository
+        )
+        self.clear_all_use_case = ClearAllNotificationsUseCase(
+            repository=self.repository
+        )
 
     @action(detail=True, methods=['patch'], url_path='read')
     def read(self, request, pk=None):
@@ -85,3 +95,26 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Elimina la notificación especificada.
+        """
+        try:
+            instance = self.get_object()
+            command = DeleteNotificationCommand(notification_id=instance.pk)
+            self.delete_use_case.execute(command)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except NotificationNotFound as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=['delete'], url_path='clear')
+    def clear_all(self, request):
+        """
+        Limpia todas las notificaciones. En un entorno más completo
+        filtraría por id de usuario, de momento borra las consultadas en la vista.
+        """
+        # Se asume limpieza global temporalmente, o extraer user_id del view si existiese.
+        command = ClearAllNotificationsCommand()
+        self.clear_all_use_case.execute(command)
+        return Response(status=status.HTTP_204_NO_CONTENT)

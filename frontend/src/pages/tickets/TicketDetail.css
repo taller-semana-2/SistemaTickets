@@ -150,3 +150,33 @@
   margin: 0;
   font-weight: 500;
 }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .ticket-detail-container {
+    padding: 1rem 4%;
+  }
+
+  .ticket-detail-card {
+    padding: 1.2rem;
+  }
+
+  .ticket-detail-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .ticket-detail-title {
+    font-size: 1.2rem;
+  }
+
+  .response-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .response-item {
+    padding: 1rem;
+  }
+}

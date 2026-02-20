@@ -172,3 +172,34 @@ class CreateNotificationFromResponseUseCase:
         logger.info("Notificación creada para ticket_id=%s, response_id=%s", command.ticket_id, command.response_id)
 
         return notification
+
+
+@dataclass
+class DeleteNotificationCommand:
+    """Comando: Eliminar una notificación por ID."""
+    notification_id: int
+
+class DeleteNotificationUseCase:
+    """Caso de uso: Eliminar una notificación de forma permanente."""
+    def __init__(self, repository: NotificationRepository):
+        self.repository = repository
+
+    def execute(self, command: DeleteNotificationCommand) -> None:
+        if not self.repository.delete(command.notification_id):
+            raise NotificationNotFound(command.notification_id)
+        logger.info("Notificación %s eliminada.", command.notification_id)
+
+
+@dataclass
+class ClearAllNotificationsCommand:
+    """Comando: Eliminar todas las notificaciones."""
+    user_id: Optional[str] = None
+
+class ClearAllNotificationsUseCase:
+    """Caso de uso: Limpiar todas las notificaciones pertenecientes a un usuario visible, o todas."""
+    def __init__(self, repository: NotificationRepository):
+        self.repository = repository
+
+    def execute(self, command: ClearAllNotificationsCommand) -> None:
+        self.repository.delete_all(command.user_id)
+        logger.info("Todas las notificaciones %shan sido eliminadas.", f"para el usuario {command.user_id} " if command.user_id else "")

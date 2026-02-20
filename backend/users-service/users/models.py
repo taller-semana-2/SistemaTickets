@@ -59,6 +59,12 @@ class User(models.Model):
         choices=RoleChoices.choices,
         default=RoleChoices.USER
     )
+    
+    @property
+    def is_authenticated(self):
+        """Requerido por DRF IsAuthenticated permission"""
+        return True
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
