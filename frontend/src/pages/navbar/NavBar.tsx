@@ -1,9 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import { notificationsApi } from "../../services/notification";
-import { authService } from "../../services/auth";
 import { useNotifications } from "../../context/NotificacionContext";
-import type { User } from "../../types/auth";
+import { useAuth } from "../../context/AuthContext";
 import "./NavBar.css";
 
 const Navbar = () => {
@@ -11,11 +10,11 @@ const Navbar = () => {
   const { trigger } = useNotifications();
 
   const [unreadCount, setUnreadCount] = useState(0);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user: currentUser, isAdmin, logout, isAuthenticated } = useAuth();
 
   const loadUnreadCount = useCallback(async () => {
-    if (!authService.isAuthenticated()) return;
+    if (!isAuthenticated) return;
     try {
       const notifications = await notificationsApi.getNotifications();
       const unread = notifications.filter((n) => !n.read).length;
@@ -23,26 +22,20 @@ const Navbar = () => {
     } catch (error) {
       console.error("Error cargando notificaciones", error);
     }
-  }, []);
-
-  useEffect(() => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     loadUnreadCount();
   }, [loadUnreadCount, trigger]);
 
-  const handleLogout = () => {
-    authService.logout();
+  const handleLogout = async () => {
+    closeMenu();
+    await logout();
     navigate("/login", { replace: true });
   };
 
   const toggleMenu = () => setMenuOpen((prev) => !prev);
   const closeMenu = () => setMenuOpen(false);
-
-  const isAdmin = currentUser?.role === "ADMIN";
 
   return (
     <nav className="navbar">
@@ -137,7 +130,7 @@ const Navbar = () => {
 
         <li className="navbar__logout">
           <button
-            onClick={() => { handleLogout(); closeMenu(); }}
+            onClick={handleLogout}
             className="navbar__link navbar__link--logout"
           >
             Cerrar Sesión

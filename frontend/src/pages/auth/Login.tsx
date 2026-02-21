@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { authService } from '../../services/auth';
+import { useAuth } from '../../context/AuthContext';
 import './Auth.css';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -19,23 +20,14 @@ const Login = () => {
 
     try {
       // Llamar al API de autenticación
-      await authService.login({
-        email: formData.email,
-        password: formData.password,
-      });
+      await login(formData.email, formData.password);
       
       // Redirigir al dashboard después del login exitoso
       navigate('/tickets', { replace: true });
     } catch (err: any) {
       console.error('Login error:', err);
-      
-      // Manejar diferentes tipos de errores
-      if (err.response?.status === 401) {
-        setError('Credenciales inválidas. Verifica tu email y contraseña.');
-      } else if (err.response?.data?.error) {
-        setError(err.response.data.error);
-      } else if (err.message) {
-        setError(`Error de conexión: ${err.message}`);
+      if (err.message) {
+        setError(err.message);
       } else {
         setError('Error al iniciar sesión. Intenta nuevamente.');
       }

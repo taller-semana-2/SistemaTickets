@@ -56,7 +56,7 @@ INSTALLED_APPS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTStatelessUserAuthentication',
+        'tickets.infrastructure.cookie_auth.CookieJWTStatelessAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -171,3 +171,13 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-user-id",
     "x-user-role",
 ]
+
+# Cookie authentication support (cross-origin cookie exchange with frontend)
+CORS_ALLOW_CREDENTIALS = True
+
+_csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]
+if not CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:5173',
+    ]

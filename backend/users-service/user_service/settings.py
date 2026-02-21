@@ -154,7 +154,7 @@ RABBITMQ_HOST = os.environ.get('RABBITMQ_HOST', 'rabbitmq')
 # ---------------------------------------------------------------------------
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'users.infrastructure.authentication.UsersServiceJWTAuthentication',
+        'users.infrastructure.cookie_authentication.CookieJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -169,7 +169,7 @@ SIMPLE_JWT = {
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
     'ALGORITHM': 'HS256',
-    'ROTATE_REFRESH_TOKENS': True,
+    'ROTATE_REFRESH_TOKENS': False,
 }
 
 # CORS Configuration
@@ -190,3 +190,15 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-user-id",
     "x-user-role",
 ]
+
+# Cookie authentication support
+# ---------------------------------------------------------------------------
+CORS_ALLOW_CREDENTIALS = True  # Required for cross-origin cookie exchange
+
+# CSRF Trusted Origins — required when CORS_ALLOW_CREDENTIALS = True
+_csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]
+if not CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:5173',
+    ]

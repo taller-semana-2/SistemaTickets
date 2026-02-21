@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type React from 'react';
 import { ticketApi } from '../../services/ticketApi';
 import type { TicketResponse } from '../../types/ticket';
+import { useAuth } from '../../context/AuthContext';
 import './AdminResponseForm.css';
 
 export const MAX_RESPONSE_LENGTH = 2000;
@@ -20,6 +21,7 @@ const AdminResponseForm = ({ ticketId, onResponseCreated }: AdminResponseFormPro
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { user } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +29,7 @@ const AdminResponseForm = ({ ticketId, onResponseCreated }: AdminResponseFormPro
 
     setSubmitting(true);
     try {
-      const created = await ticketApi.createResponse(ticketId, text);
+      const created = await ticketApi.createResponse(ticketId, text, user!.id);
       onResponseCreated(created);
       setText('');
       textareaRef.current?.focus();

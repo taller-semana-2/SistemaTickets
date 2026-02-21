@@ -10,7 +10,7 @@ import AssignmentList from '../pages/assignments/AssignmentList';
 import Login from '../pages/auth/Login';
 import Register from '../pages/auth/Register';
 import ProtectedRoute from '../components/ProtectedRoute';
-import { authService } from '../services/auth';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Monta la conexión SSE global para actualizar el badge de notificaciones.
@@ -28,7 +28,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   // useMatch devuelve un objeto si la ruta actual coincide con el patrón.
   const isTicketDetail = Boolean(useMatch('/tickets/:id'));
-  const isAuthenticated = authService.isAuthenticated();
+  const { isAuthenticated } = useAuth();
   const showProtectedUI = !isAuthPage && isAuthenticated;
 
   return (

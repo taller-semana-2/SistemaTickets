@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { authService } from '../../services/auth';
+import { useAuth } from '../../context/AuthContext';
 import './Auth.css';
 
 const Register = () => {
   const navigate = useNavigate();
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -33,24 +34,14 @@ const Register = () => {
 
     try {
       // Llamar al API de registro
-      await authService.register({
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-      });
+      await register(formData.username, formData.email, formData.password);
 
       // Redirigir al dashboard después del registro exitoso
       navigate('/tickets', { replace: true });
     } catch (err: any) {
       console.error('Register error:', err);
-      
-      // Manejar diferentes tipos de errores
-      if (err.response?.status === 400) {
-        setError(err.response.data?.error || 'El email ya está registrado o los datos son inválidos.');
-      } else if (err.response?.data?.error) {
-        setError(err.response.data.error);
-      } else if (err.message) {
-        setError(`Error de conexión: ${err.message}`);
+      if (err.message) {
+        setError(err.message);
       } else {
         setError('Error al crear la cuenta. Intenta nuevamente.');
       }

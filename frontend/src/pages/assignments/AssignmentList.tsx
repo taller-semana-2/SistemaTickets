@@ -34,11 +34,18 @@ const AssignmentList = () => {
       const activeTicketIds = new Set(ticketsData.map(t => t.id.toString()));
       const validAssignments = assignmentsData.filter(a => activeTicketIds.has(a.ticket_id.toString()));
 
+      // Build a set of closed ticket IDs to pre-mark as completed
+      const closedTicketIds = new Set(
+        ticketsData
+          .filter(t => t.status === 'CLOSED')
+          .map(t => t.id.toString())
+      );
+
       setAssignments(
         validAssignments.map((a) => ({
           ...a,
           managing: false,
-          completed: false,
+          completed: closedTicketIds.has(a.ticket_id.toString()),
         }))
       );
     } catch (error) {
@@ -58,12 +65,32 @@ const AssignmentList = () => {
     );
   };
 
-  const handleComplete = (id: number) => {
-    setAssignments((prev) =>
-      prev.map((a) =>
-        a.id === id ? { ...a, completed: true, managing: false } : a
-      )
-    );
+  const handleComplete = async (id: number) => {
+    const assignment = assignments.find((a) => a.id === id);
+    if (!assignment) return;
+
+    try {
+      // Fetch current ticket to check its status
+      const ticket = await ticketApi.getTicket(assignment.ticket_id);
+
+      // Domain rule: OPEN → IN_PROGRESS → CLOSED (must follow this order)
+      if (ticket.status === 'OPEN') {
+        await ticketApi.updateStatus(assignment.ticket_id, 'IN_PROGRESS');
+      }
+
+      if (ticket.status !== 'CLOSED') {
+        await ticketApi.updateStatus(assignment.ticket_id, 'CLOSED');
+      }
+
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, completed: true, managing: false } : a
+        )
+      );
+    } catch (error) {
+      console.error('Error al marcar como realizada:', error);
+      alert('No se pudo cerrar el ticket asociado. Intenta de nuevo.');
+    }
   };
 
   const handleAssign = async (assignmentId: number, userId: string) => {

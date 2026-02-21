@@ -129,6 +129,8 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from django.db import connection
 
 from .application.use_cases import (
@@ -141,10 +143,10 @@ from .application.use_cases import (
 )
 from .infrastructure.repository import DjangoUserRepository
 from .infrastructure.event_publisher import RabbitMQEventPublisher
+from .infrastructure.cookie_utils import set_auth_cookies, clear_auth_cookies
 from .serializers import (
     RegisterUserSerializer,
     LoginSerializer,
-    AuthResponseSerializer
 )
 from .domain.exceptions import (
     UserAlreadyExists,
@@ -204,8 +206,8 @@ class AuthViewSet(viewsets.ViewSet):
         self.event_publisher = RabbitMQEventPublisher()
 
     def get_permissions(self):
-        """Permite acceso público solo a register y login."""
-        if self.action in ('create', 'login'):
+        """Permite acceso público a register, login y logout."""
+        if self.action in ('create', 'login', 'logout'):
             return [AllowAny()]
         return super().get_permissions()
     
@@ -235,22 +237,15 @@ class AuthViewSet(viewsets.ViewSet):
             user = auth_result['user']
             tokens = auth_result['tokens']
             
-            # 3. Serializar output con contrato de autenticación
-            output_serializer = AuthResponseSerializer({
-                'user': {
-                    'id': user.id,
-                    'email': user.email,
-                    'username': user.username,
-                    'role': user.role.value,
-                    'is_active': user.is_active,
-                },
-                'tokens': {
-                    'access': tokens['access'],
-                    'refresh': tokens['refresh'],
-                }
-            })
-            
-            return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+            user_data = {
+                'id': str(user.id),
+                'email': user.email,
+                'username': user.username,
+                'role': user.role.value,
+                'is_active': user.is_active,
+            }
+            response = Response({'user': user_data}, status=status.HTTP_201_CREATED)
+            return set_auth_cookies(response, tokens['access'], tokens['refresh'])
         
         except UserAlreadyExists as e:
             return Response(
@@ -289,22 +284,15 @@ class AuthViewSet(viewsets.ViewSet):
             user = auth_result['user']
             tokens = auth_result['tokens']
             
-            # 3. Serializar output con contrato de autenticación
-            output_serializer = AuthResponseSerializer({
-                'user': {
-                    'id': user.id,
-                    'email': user.email,
-                    'username': user.username,
-                    'role': user.role.value,
-                    'is_active': user.is_active,
-                },
-                'tokens': {
-                    'access': tokens['access'],
-                    'refresh': tokens['refresh'],
-                }
-            })
-            
-            return Response(output_serializer.data, status=status.HTTP_200_OK)
+            user_data = {
+                'id': str(user.id),
+                'email': user.email,
+                'username': user.username,
+                'role': user.role.value,
+                'is_active': user.is_active,
+            }
+            response = Response({'user': user_data}, status=status.HTTP_200_OK)
+            return set_auth_cookies(response, tokens['access'], tokens['refresh'])
         
         except UserNotFound as e:
             return Response(
@@ -316,6 +304,36 @@ class AuthViewSet(viewsets.ViewSet):
                 {'error': f'Error inesperado: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=False, methods=['get'], url_path='me')
+    def me(self, request):
+        """
+        GET /api/auth/me/
+        Return the currently authenticated user's data.
+        Reads the access_token from the HttpOnly cookie (handled by
+        CookieJWTAuthentication). Requires authentication.
+        """
+        user = request.user
+        return Response(
+            {
+                'id': str(user.id),
+                'email': user.email,
+                'username': user.username,
+                'role': user.role if hasattr(user, 'role') else 'USER',
+                'is_active': user.is_active,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=['post'], url_path='logout')
+    def logout(self, request):
+        """
+        POST /api/auth/logout/
+        Log out by clearing authentication cookies.
+        Public so that expired-token requests can still clear cookies.
+        """
+        response = Response({'detail': 'Sesión cerrada'}, status=status.HTTP_200_OK)
+        return clear_auth_cookies(response)
     
     @action(detail=False, methods=['get'], url_path='by-role/(?P<role>[^/.]+)')
     def by_role(self, request, role=None):
@@ -347,6 +365,56 @@ class AuthViewSet(viewsets.ViewSet):
                 {'error': f'Error inesperado: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class CookieTokenRefreshView(APIView):
+    """
+    Refresh JWT tokens by reading refresh_token from HttpOnly cookie.
+
+    POST /api/auth/refresh/
+
+    Reads the refresh_token cookie, generates a new access token (and
+    optionally rotates the refresh token), and sets both as new cookies.
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """Refresh access token using the refresh_token cookie."""
+        refresh_token = request.COOKIES.get('refresh_token')
+        if not refresh_token:
+            return Response(
+                {'error': 'Refresh token no encontrado'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        try:
+            refresh = RefreshToken(refresh_token)
+            new_access = str(refresh.access_token)
+            new_refresh = str(refresh)
+
+            response = Response(
+                {'detail': 'Token renovado'}, status=status.HTTP_200_OK
+            )
+            return set_auth_cookies(response, new_access, new_refresh)
+
+        except TokenError:
+            response = Response(
+                {'error': 'Refresh token inválido o expirado'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            return clear_auth_cookies(response)
+
+        except Exception as e:
+            # Catch-all to prevent 500 errors from unexpected exceptions
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Unexpected error during token refresh: {e}', exc_info=True)
+            response = Response(
+                {'error': 'Error al renovar token'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            return clear_auth_cookies(response)
 
 
 # TODO: Implementar UserViewSet cuando se completen las capas de dominio y aplicación
