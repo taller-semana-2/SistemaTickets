@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
+import { useFetch } from '../../hooks/useFetchOnce';
 import { notificationsApi } from '../../services/notification';
 import { useNotifications } from '../../context/NotificacionContext';
 import { LoadingState, EmptyState, PageHeader } from '../../components/common';
@@ -23,20 +24,42 @@ const NotificationList = () => {
     onConfirm: () => {},
   });
 
-  const loadNotifications = useCallback(async () => {
+  /**
+   * Carga las notificaciones desde la API con AbortController
+   */
+  const loadNotifications = async (signal?: AbortSignal) => {
     try {
-      const data = await notificationsApi.getNotifications();
+      const data = await notificationsApi.getNotifications(signal);
       setNotifications(data);
     } catch (error) {
-      console.error('Error cargando notificaciones', error);
+      // Ignorar errores de cancelación (AbortError)
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Error cargando notificaciones', error);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
+  // Cargar notificaciones una sola vez en el montaje (con AbortController)
+  useFetch(
+    (signal) => notificationsApi.getNotifications(signal),
+    (data) => {
+      setNotifications(data);
+      setLoading(false);
+    },
+    (error) => {
+      console.error('Error cargando notificaciones', error);
+      setLoading(false);
+    }
+  );
+
+  // Recargar notificaciones cuando trigger cambie (por ej. después de acciones del usuario)
   useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications, trigger]);
+    if (trigger > 0) {
+      loadNotifications();
+    }
+  }, [trigger]);
 
   const handleMarkAsRead = async (id: string) => {
     try {

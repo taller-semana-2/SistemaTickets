@@ -31,7 +31,7 @@ if not SECRET_KEY:
     raise RuntimeError("TICKET_SERVICE_SECRET_KEY is not set")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
+DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() == "true"
 
 _allowed_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "")
 ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts.split(",") if host.strip()]
@@ -62,6 +62,12 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
 }
+
+# Disable Browsable API in production (security: prevents endpoint/model exposure)
+if not DEBUG:
+    REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = (
+        'rest_framework.renderers.JSONRenderer',
+    )
 
 SIMPLE_JWT = {
     'SIGNING_KEY': os.environ.get('JWT_SECRET_KEY', SECRET_KEY),
@@ -181,3 +187,13 @@ if not CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS = [
         'http://localhost:5173',
     ]
+
+# =============================================================================
+# Security hardening (production)
+# =============================================================================
+if not DEBUG:
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
