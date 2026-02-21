@@ -20,20 +20,20 @@ const adaptNotification = (apiData: NotificationApiResponse): Notification => ({
 });
 
 export const notificationsApi = {
-  async getNotifications(): Promise<Notification[]> {
-    const { data } = await notificationApiClient.get<NotificationApiResponse[]>(`/notifications/?t=${new Date().getTime()}`);
+  async getNotifications(signal?: AbortSignal): Promise<Notification[]> {
+    const { data } = await notificationApiClient.get<NotificationApiResponse[]>(`/notifications/?t=${new Date().getTime()}`, { signal });
     return data.map(adaptNotification);
   },
 
-  async markAsRead(id: string): Promise<void> {
-    await notificationApiClient.patch(`/notifications/${id}/read/`);
+  async markAsRead(id: string, signal?: AbortSignal): Promise<void> {
+    await notificationApiClient.patch(`/notifications/${id}/read/`, {}, { signal });
   },
 
-  async clearAll(): Promise<void> {
-    await notificationApiClient.delete('/notifications/clear/');
+  async clearAll(signal?: AbortSignal): Promise<void> {
+    await notificationApiClient.delete('/notifications/clear/', { signal });
   },
 
-  async deleteNotification(id: string): Promise<void> {
-    await notificationApiClient.delete(`/notifications/${id}/`);
+  async deleteNotification(id: string, signal?: AbortSignal): Promise<void> {
+    await notificationApiClient.delete(`/notifications/${id}/`, { signal });
   },
 };
