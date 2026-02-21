@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useFetch } from '../../hooks/useFetchOnce';
 import { assignmentsApi } from '../../services/assignment';
 import { ticketApi } from '../../services/ticketApi';
 import { LoadingState, EmptyState, PageHeader } from '../../components/common';
@@ -20,20 +21,24 @@ const AssignmentList = () => {
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const loadAssignments = async () => {
-    try {
-      setLoading(true);
-      
+  /**
+   * Carga asignaciones y tickets en paralelo con AbortSignal
+   */
+  useFetch(
+    async (signal) => {
       // Fetch both assignments and active tickets concurrently
       const [assignmentsData, ticketsData] = await Promise.all([
-        assignmentsApi.getAssignments(),
-        ticketApi.getTickets()
+        assignmentsApi.getAssignments(signal),
+        ticketApi.getTickets(signal)
       ]);
 
       // Filter out assignments for tickets that don't exist anymore
       const activeTicketIds = new Set(ticketsData.map(t => t.id.toString()));
       const validAssignments = assignmentsData.filter(a => activeTicketIds.has(a.ticket_id.toString()));
 
+      return validAssignments;
+    },
+    (validAssignments) => {
       setAssignments(
         validAssignments.map((a) => ({
           ...a,
@@ -41,16 +46,13 @@ const AssignmentList = () => {
           completed: false,
         }))
       );
-    } catch (error) {
+      setLoading(false);
+    },
+    (error) => {
       console.error('Error cargando asignaciones', error);
-    } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadAssignments();
-  }, []);
+  );
 
   const handleManage = (id: number) => {
     setAssignments((prev) =>

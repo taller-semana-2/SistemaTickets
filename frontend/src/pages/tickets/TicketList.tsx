@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useFetch } from '../../hooks/useFetchOnce';
 import { ticketApi } from '../../services/ticketApi';
 import { authService } from '../../services/auth';
 import type { Ticket, TicketPriority } from '../../types/ticket';
@@ -12,24 +13,23 @@ const TicketList = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  useEffect(() => {
-    ticketApi.getTickets()
-      .then((data) => {
-        const currentUser = authService.getCurrentUser();
-        if (currentUser && currentUser.role === 'USER') {
-          const userTickets = data.filter(ticket => ticket.user_id === currentUser.id);
-          setTickets(userTickets);
-        } else {
-          setTickets(data);
-        }
-      })
-      .catch((error) => {
-        console.error('Error al cargar tickets:', error);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
+  useFetch(
+    (signal) => ticketApi.getTickets(signal),
+    (data) => {
+      const currentUser = authService.getCurrentUser();
+      if (currentUser && currentUser.role === 'USER') {
+        const userTickets = data.filter(ticket => ticket.user_id === currentUser.id);
+        setTickets(userTickets);
+      } else {
+        setTickets(data);
+      }
+      setLoading(false);
+    },
+    (error) => {
+      console.error('Error al cargar tickets:', error);
+      setLoading(false);
+    }
+  );
 
   const handleDelete = (id: number) => {
     setDeleteId(id);

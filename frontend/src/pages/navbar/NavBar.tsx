@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
+import { useFetch } from "../../hooks/useFetchOnce";
 import { notificationsApi } from "../../services/notification";
 import { authService } from "../../services/auth";
 import { useNotifications } from "../../context/NotificacionContext";
@@ -14,25 +15,52 @@ const Navbar = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const loadUnreadCount = useCallback(async () => {
+  /**
+   * Carga el conteo de notificaciones no leídas con AbortController
+   */
+  const loadUnreadCount = async (signal?: AbortSignal) => {
     if (!authService.isAuthenticated()) return;
     try {
-      const notifications = await notificationsApi.getNotifications();
+      const notifications = await notificationsApi.getNotifications(signal);
       const unread = notifications.filter((n) => !n.read).length;
       setUnreadCount(unread);
     } catch (error) {
-      console.error("Error cargando notificaciones", error);
+      // Ignorar errores de cancelación
+      if ((error as Error).name !== 'AbortError') {
+        console.error("Error cargando notificaciones", error);
+      }
     }
-  }, []);
+  };
 
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
   }, []);
 
+  // Cargar conteo de notificaciones una sola vez en el montaje (con AbortController)
+  useFetch(
+    async (signal) => {
+      if (!authService.isAuthenticated()) return;
+      const notifications = await notificationsApi.getNotifications(signal);
+      return notifications;
+    },
+    (notifications) => {
+      if (notifications) {
+        const unread = notifications.filter((n) => !n.read).length;
+        setUnreadCount(unread);
+      }
+    },
+    (error) => {
+      console.error("Error cargando notificaciones", error);
+    }
+  );
+
+  // Recargar conteo cuando trigger cambie (actualizaciones en tiempo real)
   useEffect(() => {
-    loadUnreadCount();
-  }, [loadUnreadCount, trigger]);
+    if (trigger > 0) {
+      loadUnreadCount();
+    }
+  }, [trigger]);
 
   const handleLogout = () => {
     authService.logout();
