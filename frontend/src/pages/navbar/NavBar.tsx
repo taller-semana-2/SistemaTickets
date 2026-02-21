@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
+import { useFetchOnce } from "../../hooks/useFetchOnce";
 import { notificationsApi } from "../../services/notification";
 import { authService } from "../../services/auth";
 import { useNotifications } from "../../context/NotificacionContext";
@@ -14,7 +15,10 @@ const Navbar = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const loadUnreadCount = useCallback(async () => {
+  /**
+   * Carga el conteo de notificaciones no leídas
+   */
+  const loadUnreadCount = async () => {
     if (!authService.isAuthenticated()) return;
     try {
       const notifications = await notificationsApi.getNotifications();
@@ -23,16 +27,24 @@ const Navbar = () => {
     } catch (error) {
       console.error("Error cargando notificaciones", error);
     }
-  }, []);
+  };
 
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
   }, []);
 
-  useEffect(() => {
+  // Cargar conteo de notificaciones una sola vez en el montaje
+  useFetchOnce(() => {
     loadUnreadCount();
-  }, [loadUnreadCount, trigger]);
+  });
+
+  // Recargar conteo cuando trigger cambie (actualizaciones en tiempo real)
+  useEffect(() => {
+    if (trigger > 0) {
+      loadUnreadCount();
+    }
+  }, [trigger]);
 
   const handleLogout = () => {
     authService.logout();

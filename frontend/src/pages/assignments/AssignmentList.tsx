@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useFetchOnce } from '../../hooks/useFetchOnce';
 import { assignmentsApi } from '../../services/assignment';
 import { ticketApi } from '../../services/ticketApi';
 import { LoadingState, EmptyState, PageHeader } from '../../components/common';
@@ -20,6 +21,9 @@ const AssignmentList = () => {
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
+  /**
+   * Carga asignaciones y tickets, filtrando asignaciones para tickets que ya no existen
+   */
   const loadAssignments = async () => {
     try {
       setLoading(true);
@@ -48,9 +52,9 @@ const AssignmentList = () => {
     }
   };
 
-  useEffect(() => {
+  useFetchOnce(() => {
     loadAssignments();
-  }, []);
+  });
 
   const handleManage = (id: number) => {
     setAssignments((prev) =>
