@@ -1,4 +1,5 @@
-import { Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { authService, getAccessToken } from '../services/auth';
 
 const isTokenExpired = (token: string): boolean => {
@@ -34,11 +35,21 @@ interface ProtectedRouteProps {
  * @param requireAdmin - Si true, solo permite acceso a usuarios ADMIN
  */
 const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
+  const navigate = useNavigate();
   const currentUser = authService.getCurrentUser();
   const accessToken = getAccessToken();
   const hasValidToken = accessToken !== null && !isTokenExpired(accessToken);
   const isAuthenticated = authService.isAuthenticated();
   const isAdmin = currentUser?.role === 'ADMIN';
+
+  const shouldDenyAdmin = requireAdmin && !isAdmin && isAuthenticated && hasValidToken && !!currentUser;
+
+  useEffect(() => {
+    if (shouldDenyAdmin) {
+      alert('Acceso denegado: no tienes permisos de administrador para acceder a esta página.');
+      navigate('/tickets', { replace: true });
+    }
+  }, [shouldDenyAdmin, navigate]);
 
   // Si no está autenticado o no tiene token válido, redirigir al login
   if (!isAuthenticated || !hasValidToken || !currentUser) {
@@ -46,9 +57,9 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     return <Navigate to="/login" replace />;
   }
 
-  // Si la ruta requiere admin y el usuario no es admin, redirigir a tickets
-  if (requireAdmin && !isAdmin) {
-    return <Navigate to="/tickets" replace />;
+  // Si la ruta requiere admin y el usuario no es admin, mostrar mensaje y redirigir
+  if (shouldDenyAdmin) {
+    return null;
   }
 
   // Usuario tiene acceso, renderizar el componente
