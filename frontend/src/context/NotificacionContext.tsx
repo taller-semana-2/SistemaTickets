@@ -14,6 +14,7 @@ export const NotificationProvider = ({
 }) => {
   const [trigger, setTrigger] = useState(0);
 
+  // Expose a way to manually increment the trigger from anywhere (SSE, UI actions)
   const refreshUnread = () => setTrigger((t) => t + 1);
 
   return (

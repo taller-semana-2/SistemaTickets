@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
 import { assignmentsApi } from '../../services/assignment';
-import {LoadingState, EmptyState, PageHeader } from '../../components/common';
+import { ticketApi } from '../../services/ticketApi';
+import { LoadingState, EmptyState, PageHeader } from '../../components/common';
 import type { Assignment } from '../../types/assignment';
 import TicketAssign from '../../components/TicketAssign';
+import ConfirmModal from '../../components/ConfirmModal';
 import './AssignmentList.css';
 
+/**
+ * Extensión de la interfaz {@link Assignment} con campos de estado de UI.
+ */
 interface UIAssignment extends Assignment {
   managing?: boolean;
   completed?: boolean;
@@ -13,14 +18,24 @@ interface UIAssignment extends Assignment {
 const AssignmentList = () => {
   const [assignments, setAssignments] = useState<UIAssignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadAssignments = async () => {
     try {
       setLoading(true);
-      const data = await assignmentsApi.getAssignments();
+      
+      // Fetch both assignments and active tickets concurrently
+      const [assignmentsData, ticketsData] = await Promise.all([
+        assignmentsApi.getAssignments(),
+        ticketApi.getTickets()
+      ]);
+
+      // Filter out assignments for tickets that don't exist anymore
+      const activeTicketIds = new Set(ticketsData.map(t => t.id.toString()));
+      const validAssignments = assignmentsData.filter(a => activeTicketIds.has(a.ticket_id.toString()));
 
       setAssignments(
-        data.map((a) => ({
+        validAssignments.map((a) => ({
           ...a,
           managing: false,
           completed: false,
@@ -55,7 +70,6 @@ const AssignmentList = () => {
     try {
       const updatedAssignment = await assignmentsApi.assignUser(assignmentId, userId);
       
-      // Actualizar en el estado local
       setAssignments((prev) =>
         prev.map((a) =>
           a.id === assignmentId
@@ -71,18 +85,20 @@ const AssignmentList = () => {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      '¿Seguro que deseas eliminar esta asignación?'
-    );
-    if (!confirmed) return;
+  const handleDelete = (id: number) => {
+    setDeleteId(id);
+  };
 
+  const confirmDelete = async () => {
+    if (deleteId === null) return;
     try {
-      await assignmentsApi.deleteAssignment(id);
-      setAssignments((prev) => prev.filter((a) => a.id !== id));
+      await assignmentsApi.deleteAssignment(deleteId);
+      setAssignments((prev) => prev.filter((a) => a.id !== deleteId));
     } catch (error) {
       console.error('Error eliminando asignación', error);
       alert('No se pudo eliminar la asignación');
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -113,7 +129,9 @@ const AssignmentList = () => {
               key={item.id}
               className={`assignment-card ${item.completed ? 'completed' : ''}`}
             >
-              <div className="assignment-badge">{item.priority}</div>
+              <div className={`assignment-badge priority-${(item.priority || 'unassigned').toLowerCase()}`}>
+                {item.priority ? item.priority.charAt(0).toUpperCase() + item.priority.slice(1).toLowerCase() : 'Unassigned'}
+              </div>
 
               <div className="assignment-content">
                 <h3 className="assignment-title">Ticket #{item.ticket_id}</h3>
@@ -163,6 +181,14 @@ const AssignmentList = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {deleteId !== null && (
+        <ConfirmModal
+          message="¿Seguro que deseas eliminar esta asignación?"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteId(null)}
+        />
       )}
     </div>
   );

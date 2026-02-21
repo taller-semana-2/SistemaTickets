@@ -3,13 +3,15 @@ Tests de la capa de infraestructura (adaptadores).
 Prueban Repository y EventPublisher con Django.
 """
 
-from django.test import TestCase
-from unittest.mock import patch, Mock
+import json
 from datetime import datetime
+from unittest.mock import Mock, patch
+
+from django.test import TestCase
 
 from tickets.models import Ticket as DjangoTicket
 from tickets.domain.entities import Ticket as DomainTicket
-from tickets.domain.events import TicketCreated, TicketStatusChanged
+from tickets.domain.events import TicketCreated, TicketStatusChanged, TicketPriorityChanged
 from tickets.infrastructure.repository import DjangoTicketRepository
 from tickets.infrastructure.event_publisher import RabbitMQEventPublisher
 
@@ -129,6 +131,96 @@ class TestDjangoTicketRepository(TestCase):
         # No debe lanzar excepción
         self.repository.delete(999999)
 
+    # ==================== Priority Mapping Tests ====================
+
+    def test_save_new_ticket_persists_priority(self):
+        """save() persiste priority al crear un ticket nuevo."""
+        domain_ticket = DomainTicket(
+            id=None, title="T", description="D", status="OPEN",
+            user_id="user1", created_at=datetime.now(), priority="High"
+        )
+        saved = self.repository.save(domain_ticket)
+        django_ticket = DjangoTicket.objects.get(pk=saved.id)
+        assert django_ticket.priority == "High"
+
+    def test_save_new_ticket_persists_priority_justification(self):
+        """save() persiste priority_justification al crear un ticket nuevo."""
+        domain_ticket = DomainTicket(
+            id=None, title="T", description="D", status="OPEN",
+            user_id="user1", created_at=datetime.now(),
+            priority="High", priority_justification="Urgente"
+        )
+        saved = self.repository.save(domain_ticket)
+        django_ticket = DjangoTicket.objects.get(pk=saved.id)
+        assert django_ticket.priority_justification == "Urgente"
+
+    def test_save_existing_ticket_updates_priority(self):
+        """save() actualiza priority en un ticket existente."""
+        django_ticket = DjangoTicket.objects.create(
+            title="T", description="D", status="OPEN", priority="Unassigned"
+        )
+        domain_ticket = DomainTicket(
+            id=django_ticket.id, title="T", description="D", status="OPEN",
+            user_id="", created_at=django_ticket.created_at, priority="Medium"
+        )
+        self.repository.save(domain_ticket)
+        django_ticket.refresh_from_db()
+        assert django_ticket.priority == "Medium"
+
+    def test_save_existing_ticket_updates_priority_justification(self):
+        """save() actualiza priority_justification en un ticket existente."""
+        django_ticket = DjangoTicket.objects.create(
+            title="T", description="D", status="OPEN"
+        )
+        domain_ticket = DomainTicket(
+            id=django_ticket.id, title="T", description="D", status="OPEN",
+            user_id="", created_at=django_ticket.created_at,
+            priority="High", priority_justification="Razón actualizada"
+        )
+        self.repository.save(domain_ticket)
+        django_ticket.refresh_from_db()
+        assert django_ticket.priority_justification == "Razón actualizada"
+
+    def test_find_by_id_maps_priority_to_domain(self):
+        """find_by_id retorna entidad de dominio con priority correcta."""
+        django_ticket = DjangoTicket.objects.create(
+            title="T", description="D", status="OPEN", priority="Medium"
+        )
+        domain_ticket = self.repository.find_by_id(django_ticket.id)
+        assert domain_ticket.priority == "Medium"
+
+    def test_find_by_id_maps_priority_justification_to_domain(self):
+        """find_by_id retorna entidad de dominio con priority_justification correcta."""
+        django_ticket = DjangoTicket.objects.create(
+            title="T", description="D", status="OPEN",
+            priority="High", priority_justification="Motivo"
+        )
+        domain_ticket = self.repository.find_by_id(django_ticket.id)
+        assert domain_ticket.priority_justification == "Motivo"
+
+    def test_to_django_model_maps_priority_from_domain(self):
+        """to_django_model con ticket existente mapea priority correctamente."""
+        django_ticket = DjangoTicket.objects.create(
+            title="T", description="D", status="OPEN", priority="Unassigned"
+        )
+        domain_ticket = DomainTicket(
+            id=django_ticket.id, title="T", description="D", status="OPEN",
+            user_id="", created_at=django_ticket.created_at, priority="High"
+        )
+        result = self.repository.to_django_model(domain_ticket)
+        assert result.priority == "High"
+
+    def test_to_django_model_without_id_maps_priority(self):
+        """to_django_model sin ID mapea priority y priority_justification."""
+        domain_ticket = DomainTicket(
+            id=None, title="T", description="D", status="OPEN",
+            user_id="user1", created_at=datetime.now(),
+            priority="Low", priority_justification="Razón"
+        )
+        result = self.repository.to_django_model(domain_ticket)
+        assert result.priority == "Low"
+        assert result.priority_justification == "Razón"
+
 
 class TestRabbitMQEventPublisher(TestCase):
     """Tests del publicador de eventos RabbitMQ."""
@@ -166,7 +258,6 @@ class TestRabbitMQEventPublisher(TestCase):
         assert 'body' in call_kwargs
         
         # Verificar contenido del mensaje
-        import json
         body = json.loads(call_kwargs['body'])
         assert body['event_type'] == 'ticket.created'
         assert body['ticket_id'] == 123
@@ -192,7 +283,6 @@ class TestRabbitMQEventPublisher(TestCase):
         
         # Verificar mensaje
         call_kwargs = mock_channel.basic_publish.call_args[1]
-        import json
         body = json.loads(call_kwargs['body'])
         
         assert body['event_type'] == 'ticket.status_changed'
@@ -241,3 +331,104 @@ class TestRabbitMQEventPublisher(TestCase):
             publisher.publish(event)
         
         assert "Connection failed" in str(context.exception)
+
+    @patch('tickets.infrastructure.event_publisher.pika')
+    def test_publish_ticket_priority_changed_event(self, mock_pika):
+        """Publicar evento TicketPriorityChanged envía mensaje correcto."""
+        mock_connection = Mock()
+        mock_channel = Mock()
+        mock_pika.BlockingConnection.return_value = mock_connection
+        mock_connection.channel.return_value = mock_channel
+
+        publisher = RabbitMQEventPublisher()
+        event = TicketPriorityChanged(
+            occurred_at=datetime(2026, 2, 19, 14, 30, 0),
+            ticket_id=42,
+            old_priority="Unassigned",
+            new_priority="High",
+            justification="Urgente"
+        )
+
+        publisher.publish(event)
+
+        call_kwargs = mock_channel.basic_publish.call_args[1]
+        body = json.loads(call_kwargs['body'])
+
+        assert body['event_type'] == 'ticket.priority_changed'
+        assert body['ticket_id'] == 42
+        assert body['old_priority'] == 'Unassigned'
+        assert body['new_priority'] == 'High'
+        assert body['justification'] == 'Urgente'
+        assert 'occurred_at' in body
+
+    @patch('tickets.infrastructure.event_publisher.pika')
+    def test_publish_ticket_priority_changed_event_without_justification(self, mock_pika):
+        """Publicar evento TicketPriorityChanged sin justificación envía None."""
+        mock_connection = Mock()
+        mock_channel = Mock()
+        mock_pika.BlockingConnection.return_value = mock_connection
+        mock_connection.channel.return_value = mock_channel
+
+        publisher = RabbitMQEventPublisher()
+        event = TicketPriorityChanged(
+            occurred_at=datetime(2026, 2, 19, 14, 30, 0),
+            ticket_id=99,
+            old_priority="Low",
+            new_priority="Medium",
+            justification=None
+        )
+
+        publisher.publish(event)
+
+        call_kwargs = mock_channel.basic_publish.call_args[1]
+        body = json.loads(call_kwargs['body'])
+
+        assert body['event_type'] == 'ticket.priority_changed'
+        assert body['ticket_id'] == 99
+        assert body['old_priority'] == 'Low'
+        assert body['new_priority'] == 'Medium'
+        assert body['justification'] is None
+        assert 'occurred_at' in body
+
+
+class TestTicketModel(TestCase):
+    """Tests del modelo Django Ticket — campos de prioridad (Phase 1)."""
+
+    def setUp(self):
+        """Crear ticket base reutilizable para cada test."""
+        self.ticket = DjangoTicket.objects.create(
+            title="Test",
+            description="Description",
+        )
+
+    def test_ticket_model_creation_defaults_priority_to_unassigned(self):
+        """Crear ticket sin prioridad explícita debe asignar 'Unassigned' por defecto."""
+        assert self.ticket.priority == "Unassigned"
+
+    def test_ticket_model_creation_defaults_priority_justification_to_none(self):
+        """Crear ticket sin justificación debe dejar priority_justification en None."""
+        assert self.ticket.priority_justification is None
+
+    def test_ticket_model_accepts_valid_priority_values(self):
+        """El modelo acepta los valores de prioridad válidos: Low, Medium, High."""
+        valid_priorities = ["Low", "Medium", "High"]
+        for value in valid_priorities:
+            ticket = DjangoTicket.objects.create(
+                title=f"Test {value}",
+                description="Description",
+                priority=value,
+            )
+            ticket.refresh_from_db()
+            assert ticket.priority == value, (
+                f"Se esperaba priority='{value}', se obtuvo '{ticket.priority}'"
+            )
+
+    def test_ticket_model_can_update_priority_and_justification(self):
+        """Un ticket existente puede actualizar priority y priority_justification."""
+        self.ticket.priority = "High"
+        self.ticket.priority_justification = "Urgente"
+        self.ticket.save()
+
+        updated_ticket = DjangoTicket.objects.get(pk=self.ticket.id)
+        assert updated_ticket.priority == "High"
+        assert updated_ticket.priority_justification == "Urgente"

@@ -12,8 +12,10 @@ const Navbar = () => {
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const loadUnreadCount = useCallback(async () => {
+    if (!authService.isAuthenticated()) return;
     try {
       const notifications = await notificationsApi.getNotifications();
       const unread = notifications.filter((n) => !n.read).length;
@@ -37,17 +39,35 @@ const Navbar = () => {
     navigate("/login", { replace: true });
   };
 
+  const toggleMenu = () => setMenuOpen((prev) => !prev);
+  const closeMenu = () => setMenuOpen(false);
+
   const isAdmin = currentUser?.role === "ADMIN";
 
   return (
     <nav className="navbar">
       <div className="navbar__brand">
-        <NavLink to="/tickets" className="navbar__logo">
+        <NavLink to="/tickets" className="navbar__logo" onClick={closeMenu}>
           TicketSystem
         </NavLink>
       </div>
 
-      <ul className="navbar__links">
+      <button
+        className={`navbar__hamburger ${menuOpen ? "open" : ""}`}
+        onClick={toggleMenu}
+        aria-label="Toggle menu"
+        aria-expanded={menuOpen}
+      >
+        <span className="navbar__hamburger-line" />
+        <span className="navbar__hamburger-line" />
+        <span className="navbar__hamburger-line" />
+      </button>
+
+      {menuOpen && (
+        <div className="navbar__overlay" onClick={closeMenu} />
+      )}
+
+      <ul className={`navbar__links ${menuOpen ? "navbar__links--open" : ""}`}>
         <li>
           <NavLink
             to="/tickets"
@@ -55,6 +75,7 @@ const Navbar = () => {
             className={({ isActive }) =>
               isActive ? "navbar__link active" : "navbar__link"
             }
+            onClick={closeMenu}
           >
             Tickets
           </NavLink>
@@ -66,6 +87,7 @@ const Navbar = () => {
             className={({ isActive }) =>
               isActive ? "navbar__link active" : "navbar__link"
             }
+            onClick={closeMenu}
           >
             Crear Ticket
           </NavLink>
@@ -78,6 +100,7 @@ const Navbar = () => {
               className={({ isActive }) =>
                 isActive ? "navbar__link active" : "navbar__link"
               }
+              onClick={closeMenu}
             >
               🔔 Notificaciones
               {unreadCount > 0 && (
@@ -94,6 +117,7 @@ const Navbar = () => {
               className={({ isActive }) =>
                 isActive ? "navbar__link active" : "navbar__link"
               }
+              onClick={closeMenu}
             >
               Asignaciones
             </NavLink>
@@ -113,7 +137,7 @@ const Navbar = () => {
 
         <li className="navbar__logout">
           <button
-            onClick={handleLogout}
+            onClick={() => { handleLogout(); closeMenu(); }}
             className="navbar__link navbar__link--logout"
           >
             Cerrar Sesión

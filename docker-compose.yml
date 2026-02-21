@@ -11,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sistema_tickets"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -27,13 +32,16 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: ticket_service.settings
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-default-dev-secret-change-in-production}
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
       POSTGRES_DB: sistema_tickets
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "8000:8000"
 
@@ -71,6 +79,11 @@ services:
       - "5433:5432"
     volumes:
       - assessment_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assessment_user -d assessment_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   assessment-service:
     build:
@@ -88,6 +101,8 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: assessment_service.settings
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-default-dev-secret-change-in-production}
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
       POSTGRES_DB: assessment_db
       POSTGRES_USER: assessment_user
       POSTGRES_PASSWORD: assessment_pass
@@ -95,8 +110,10 @@ services:
       POSTGRES_PORT: "5432"
       RABBITMQ_HOST: rabbitmq
     depends_on:
-      - assessment-db
-      - rabbitmq
+      assessment-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     ports:
       - "8002:8000"
 
@@ -137,6 +154,11 @@ services:
       - "5434:5432"
     volumes:
       - notification_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_user -d notifications_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   notification-service:
     build:
@@ -152,6 +174,9 @@ services:
       - ./.env
     environment:
       DJANGO_SETTINGS_MODULE: notification_service.settings
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-default-dev-secret-change-in-production}
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
       POSTGRES_DB: notifications_db
       POSTGRES_USER: notification_user
       POSTGRES_PASSWORD: notif_pass
@@ -159,8 +184,10 @@ services:
       POSTGRES_PORT: "5432"
       RABBITMQ_HOST: rabbitmq
     depends_on:
-      - notification-db
-      - rabbitmq
+      notification-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     ports:
       - "8001:8000"
 
@@ -201,6 +228,11 @@ services:
       - "5435:5432"
     volumes:
       - users_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U users_user -d users_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   users-service:
     build:
@@ -217,6 +249,8 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: user_service.settings
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-default-dev-secret-change-in-production}
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
       POSTGRES_DB: users_db
       POSTGRES_USER: users_user
       POSTGRES_PASSWORD: users_pass
@@ -224,8 +258,10 @@ services:
       POSTGRES_PORT: "5432"
       RABBITMQ_HOST: rabbitmq
     depends_on:
-      - users-db
-      - rabbitmq
+      users-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     ports:
       - "8003:8000"
 

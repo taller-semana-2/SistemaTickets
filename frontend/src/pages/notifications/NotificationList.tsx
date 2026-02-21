@@ -1,17 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { notificationsApi } from '../../services/notification';
+import { useNotifications } from '../../context/NotificacionContext';
 import { LoadingState, EmptyState, PageHeader } from '../../components/common';
+import ConfirmModal from '../../components/ConfirmModal';
 import NotificationItem from './NotificationItem';
 import type { Notification } from '../../types/notification';
 import './NotificationList.css';
 
 const NotificationList = () => {
+  const { trigger, refreshUnread } = useNotifications();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadNotifications = async () => {
+  // Modal State
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const loadNotifications = useCallback(async () => {
     try {
-      setLoading(true);
       const data = await notificationsApi.getNotifications();
       setNotifications(data);
     } catch (error) {
@@ -19,51 +32,56 @@ const NotificationList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadNotifications();
-  }, []);
+  }, [loadNotifications, trigger]);
 
   const handleMarkAsRead = async (id: string) => {
     try {
       await notificationsApi.markAsRead(id);
       loadNotifications();
+      refreshUnread();
     } catch (error) {
       console.error('Error marcando como leída', error);
     }
   };
 
-  const handleClearAll = async () => {
-    const confirmed = window.confirm(
-      '¿Seguro que deseas eliminar todas las notificaciones?'
-    );
-
-    if (!confirmed) return;
-
-    try {
-      await notificationsApi.clearAll();
-      setNotifications([]);
-    } catch (error) {
-      console.error('Error eliminando notificaciones', error);
-      alert('No se pudieron eliminar las notificaciones');
-    }
+  const confirmClearAll = () => {
+    setModalState({
+      isOpen: true,
+      message: '¿Seguro que deseas eliminar todas las notificaciones?',
+      onConfirm: async () => {
+        setModalState((prev) => ({ ...prev, isOpen: false }));
+        try {
+          await notificationsApi.clearAll();
+          setNotifications([]);
+          refreshUnread();
+        } catch (error) {
+          console.error('Error eliminando notificaciones', error);
+          alert('No se pudieron eliminar las notificaciones');
+        }
+      },
+    });
   };
 
-  const handleDelete = async (id: string) => {
-    const confirmed = window.confirm(
-      '¿Seguro que deseas eliminar esta notificación?'
-    );
-
-    if (!confirmed) return;
-
-    try {
-      await notificationsApi.deleteNotification(id);
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-    } catch (error) {
-      console.error('Error eliminando notificación', error);
-      alert('No se pudo eliminar la notificación');
-    }
+  const confirmDelete = (id: string) => {
+    setModalState({
+      isOpen: true,
+      message: '¿Seguro que deseas eliminar esta notificación?',
+      onConfirm: async () => {
+        setModalState((prev) => ({ ...prev, isOpen: false }));
+        try {
+          await notificationsApi.deleteNotification(id);
+          setNotifications((prev) => prev.filter((n) => n.id !== id));
+          refreshUnread();
+        } catch (error) {
+          console.error('Error eliminando notificación', error);
+          alert('No se pudo eliminar la notificación');
+        }
+      }
+    });
   };
 
   if (loading) {
@@ -77,7 +95,7 @@ const NotificationList = () => {
         subtitle={`${notifications.length} mensajes`}
         action={
           notifications.length > 0 && (
-            <button className="btn-clear" onClick={handleClearAll}>
+            <button className="btn-clear" onClick={confirmClearAll}>
               Limpiar todo
             </button>
           )
@@ -87,16 +105,24 @@ const NotificationList = () => {
       {notifications.length === 0 ? (
         <EmptyState message="No tienes notificaciones." />
       ) : (
-        <div className="tickets-grid">
+        <div className="notifications-list">
           {notifications.map((notification) => (
             <NotificationItem
               key={notification.id}
               notification={notification}
               onMarkAsRead={handleMarkAsRead}
-              onDelete={handleDelete}
+              onDelete={confirmDelete}
             />
           ))}
         </div>
+      )}
+
+      {modalState.isOpen && (
+        <ConfirmModal
+          message={modalState.message}
+          onConfirm={modalState.onConfirm}
+          onCancel={() => setModalState((prev) => ({ ...prev, isOpen: false }))}
+        />
       )}
     </div>
   );

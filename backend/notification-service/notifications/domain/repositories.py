@@ -64,3 +64,39 @@ class NotificationRepository(ABC):
             Modelo Django
         """
         pass
+
+    @abstractmethod
+    def find_by_response_id(self, response_id: int) -> Optional['Notification']:
+        """
+        Busca una notificación asociada a un response_id específico.
+
+        Args:
+            response_id: ID de la respuesta que generó la notificación
+
+        Returns:
+            La entidad de dominio Notification o None si no existe
+        """
+        pass
+
+    @abstractmethod
+    def delete(self, notification_id: int) -> bool:
+        """
+        Elimina una notificación por su ID.
+        
+        Args:
+            notification_id: ID de la notificación a eliminar
+            
+        Returns:
+            Verdadero si se eliminó, falso si no existía.
+        """
+        pass
+
+    @abstractmethod
+    def delete_all(self, user_id: str) -> None:
+        """
+        Elimina todas las notificaciones pertenecientes a un usuario.
+        
+        Args:
+            user_id: ID del usuario
+        """
+        pass

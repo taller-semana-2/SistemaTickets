@@ -18,16 +18,16 @@ export interface RegisterRequest {
   email: string;
   username: string;
   password: string;
-  role?: UserRole;
+}
+
+export interface TokenPair {
+  access: string;
+  refresh: string;
 }
 
 export interface AuthResponse {
-  id: string;
-  email: string;
-  username: string;
-  role: UserRole;
-  is_active: boolean;
-  created_at: string;
+  user: User;
+  tokens: TokenPair;
 }
 
 export interface AuthError {

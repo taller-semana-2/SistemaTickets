@@ -32,3 +32,29 @@ class TicketAlreadyClosed(DomainException):
 class InvalidTicketData(DomainException):
     """Se lanza cuando los datos del ticket son inválidos."""
     pass
+
+
+class InvalidPriorityTransition(DomainException):
+    """Se lanza cuando se intenta una transición de prioridad inválida."""
+    
+    def __init__(self, current_priority: str, new_priority: str, reason: str):
+        self.current_priority = current_priority
+        self.new_priority = new_priority
+        super().__init__(
+            f"No se puede cambiar la prioridad de '{current_priority}' a '{new_priority}': {reason}"
+        )
+
+
+class EmptyResponseError(DomainException):
+    """Se lanza cuando se intenta crear una respuesta con texto vacío."""
+    
+    def __init__(self):
+        super().__init__("El texto de la respuesta es obligatorio")
+
+
+class ResponseTooLongError(DomainException):
+    """Se lanza cuando el texto de la respuesta excede el límite de caracteres."""
+    
+    def __init__(self, max_length: int = 2000):
+        self.max_length = max_length
+        super().__init__(f"El texto de la respuesta no puede exceder {max_length} caracteres")
