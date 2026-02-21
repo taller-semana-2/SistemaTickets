@@ -14,11 +14,15 @@ export interface LoginRequest {
   password: string;
 }
 
+/**
+ * Request body para registro público de usuarios.
+ * SEGURIDAD: No incluye campo 'role'. El registro público siempre
+ * asigna rol USER server-side.
+ */
 export interface RegisterRequest {
   email: string;
   username: string;
   password: string;
-  role?: UserRole;
 }
 
 export interface AuthResponse {
