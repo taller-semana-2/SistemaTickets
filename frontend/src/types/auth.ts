@@ -19,15 +19,9 @@ export interface RegisterRequest {
   username: string;
   password: string;
 }
-
-export interface TokenPair {
-  access: string;
-  refresh: string;
-}
-
+/** Auth response from server — tokens are in HttpOnly cookies, not in body */
 export interface AuthResponse {
   user: User;
-  tokens: TokenPair;
 }
 
 export interface AuthError {

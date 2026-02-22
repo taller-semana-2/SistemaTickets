@@ -1,7 +1,8 @@
 import { useParams } from 'react-router-dom';
-import { authService } from '../../services/auth';
+import { useAuth } from '../../context/AuthContext';
 import { LoadingState } from '../../components/common';
 import { formatDate } from '../../utils/dateFormat';
+import type { User } from '../../types/auth';
 import type { Ticket, TicketResponse } from '../../types/ticket';
 import { useTicketDetail } from './useTicketDetail';
 import { useSSE } from '../../hooks/useSSE';
@@ -55,10 +56,12 @@ const ResponseList = ({ responses }: ResponseListProps) => (
 // ---------------------------------------------------------------------------
 
 /** Determina si el usuario actual puede ver las respuestas del ticket. */
-const canUserViewResponses = (ticket: Ticket): boolean => {
-  const currentUser = authService.getCurrentUser();
-  const isAdmin = authService.isAdmin();
-  return isAdmin || currentUser?.id === ticket.user_id;
+const canUserViewResponses = (
+  ticket: Ticket,
+  currentUser: User | null,
+  isAdmin: boolean
+): boolean => {
+  return isAdmin || String(currentUser?.id) === String(ticket.user_id);
 };
 
 // ---------------------------------------------------------------------------
@@ -86,6 +89,7 @@ const AdminPanel = ({ ticketId, isClosed, onResponseCreated }: AdminPanelProps) 
 
 const TicketDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const { user, isAdmin } = useAuth();
   const { ticket, responses, loading, error, appendResponse, fetchResponses, updateTicket } =
     useTicketDetail(id);
 
@@ -109,8 +113,7 @@ const TicketDetail = () => {
     return <div className="ticket-detail-error">{error ?? 'Ticket no encontrado'}</div>;
   }
 
-  const hasAccess = canUserViewResponses(ticket);
-  const isAdmin = authService.isAdmin();
+  const hasAccess = canUserViewResponses(ticket, user, isAdmin);
 
   return (
     <div className="ticket-detail-container">

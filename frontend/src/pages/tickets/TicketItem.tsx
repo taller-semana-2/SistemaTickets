@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { authService } from '../../services/auth';
+import { useAuth } from '../../context/AuthContext';
 import type { Ticket, TicketPriority } from '../../types/ticket';
 import { formatDate } from '../../utils/dateFormat';
 import { formatPriority } from './priorityUtils';
@@ -24,7 +24,7 @@ const STATUS_ORDER: Ticket['status'][] = [
 
 const TicketItem = ({ ticket, onDelete, onUpdateStatus, onUpdatePriority }: Props) => {
   const navigate = useNavigate();
-  const currentUser = authService.getCurrentUser();
+  const { user: currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'ADMIN';
   const isAdminEditable = canManagePriority(currentUser, ticket);
   const isClosed = ticket.status === 'CLOSED';

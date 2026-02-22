@@ -1,134 +1,62 @@
 import axios from 'axios';
-import type { User, LoginRequest, RegisterRequest, AuthResponse, TokenPair } from '../types/auth';
+import type { User, LoginRequest, RegisterRequest } from '../types/auth';
 
-const AUTH_STORAGE_KEY = 'ticketSystem_user';
-
-// MVP: localStorage para tokens (tech debt - migrar a HttpOnly cookies)
-const ACCESS_TOKEN_KEY = 'accessToken';
-const REFRESH_TOKEN_KEY = 'refreshToken';
-
+/**
+ * Axios client for users-service auth endpoints.
+ * Uses withCredentials to send/receive HttpOnly cookies automatically.
+ */
 const authApiClient = axios.create({
   baseURL: 'http://localhost:8003/api',
   timeout: 10000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
 /**
- * Obtener access token persistido en cliente.
+ * Auth service — lightweight wrapper for auth API calls.
+ *
+ * NOTE: Primary auth state management is in AuthContext.
+ * This service provides the API call layer.
+ * Tokens are managed via HttpOnly cookies — never exposed to JS.
  */
-export function getAccessToken(): string | null {
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
-}
-
-/**
- * Obtener refresh token persistido en cliente.
- */
-export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
-}
-
-/**
- * Persistir par de tokens en almacenamiento local.
- */
-export function setTokens(tokens: TokenPair): void {
-  localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access);
-  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh);
-}
-
-/**
- * Eliminar tokens persistidos del almacenamiento local.
- */
-export function clearTokens(): void {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-}
-
-/**
- * Refrescar access token usando refresh token actual.
- */
-export async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = getRefreshToken();
-
-  if (!refreshToken) {
-    return null;
-  }
-
-  try {
-    const { data } = await authApiClient.post<TokenPair>('/auth/refresh/', {
-      refresh: refreshToken,
-    });
-
-    setTokens(data);
-    return data.access;
-  } catch {
-    clearTokens();
-    return null;
-  }
-}
-
 export const authService = {
   /**
-   * Iniciar sesión
+   * Log in with email and password.
+   * Cookies are set automatically by the backend response.
    */
   login: async (credentials: LoginRequest): Promise<User> => {
-    const { data } = await authApiClient.post<AuthResponse>('/auth/login/', credentials);
-    
-    // MVP: persistencia local de sesión (tech debt - migrar a cookies HttpOnly)
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
-    setTokens(data.tokens);
-    
+    const { data } = await authApiClient.post<{ user: User }>('/auth/login/', credentials);
     return data.user;
   },
 
   /**
-   * Registrar nuevo usuario
+   * Register a new user.
+   * Cookies are set automatically by the backend response.
    */
   register: async (userData: RegisterRequest): Promise<User> => {
-    const { data } = await authApiClient.post<AuthResponse>('/auth/', userData);
-    
-    // MVP: persistencia local de sesión (tech debt - migrar a cookies HttpOnly)
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
-    setTokens(data.tokens);
-    
+    const { data } = await authApiClient.post<{ user: User }>('/auth/', userData);
     return data.user;
   },
 
   /**
-   * Cerrar sesión
+   * Log out — clears HttpOnly cookies server-side.
    */
-  logout: (): void => {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    clearTokens();
+  logout: async (): Promise<void> => {
+    await authApiClient.post('/auth/logout/');
   },
 
   /**
-   * Obtener usuario actual desde localStorage
+   * Get current authenticated user from the server.
+   * Returns null if not authenticated.
    */
-  getCurrentUser: (): User | null => {
-    const userJson = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!userJson) return null;
-    
+  me: async (): Promise<User | null> => {
     try {
-      return JSON.parse(userJson) as User;
+      const { data } = await authApiClient.get<User>('/auth/me/');
+      return data;
     } catch {
       return null;
     }
-  },
-
-  /**
-   * Verificar si el usuario está autenticado
-   */
-  isAuthenticated: (): boolean => {
-    return authService.getCurrentUser() !== null && getAccessToken() !== null;
-  },
-
-  /**
-   * Verificar si el usuario es admin
-   */
-  isAdmin: (): boolean => {
-    const user = authService.getCurrentUser();
-    return user?.role === 'ADMIN';
   },
 };

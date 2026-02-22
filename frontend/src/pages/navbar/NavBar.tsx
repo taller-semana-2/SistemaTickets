@@ -1,10 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { useFetch } from "../../hooks/useFetchOnce";
+import { useEffect, useState, useCallback } from "react";
 import { notificationsApi } from "../../services/notification";
-import { authService } from "../../services/auth";
 import { useNotifications } from "../../context/NotificacionContext";
-import type { User } from "../../types/auth";
+import { useAuth } from "../../context/AuthContext";
 import "./NavBar.css";
 
 const Navbar = () => {
@@ -12,65 +10,32 @@ const Navbar = () => {
   const { trigger } = useNotifications();
 
   const [unreadCount, setUnreadCount] = useState(0);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user: currentUser, isAdmin, logout, isAuthenticated } = useAuth();
 
-  /**
-   * Carga el conteo de notificaciones no leídas con AbortController
-   */
-  const loadUnreadCount = async (signal?: AbortSignal) => {
-    if (!authService.isAuthenticated()) return;
+  const loadUnreadCount = useCallback(async () => {
+    if (!isAuthenticated) return;
     try {
-      const notifications = await notificationsApi.getNotifications(signal);
+      const notifications = await notificationsApi.getNotifications();
       const unread = notifications.filter((n) => !n.read).length;
       setUnreadCount(unread);
     } catch (error) {
-      // Ignorar errores de cancelación
-      if ((error as Error).name !== 'AbortError') {
-        console.error("Error cargando notificaciones", error);
-      }
-    }
-  };
-
-  useEffect(() => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-  }, []);
-
-  // Cargar conteo de notificaciones una sola vez en el montaje (con AbortController)
-  useFetch(
-    async (signal) => {
-      if (!authService.isAuthenticated()) return;
-      const notifications = await notificationsApi.getNotifications(signal);
-      return notifications;
-    },
-    (notifications) => {
-      if (notifications) {
-        const unread = notifications.filter((n) => !n.read).length;
-        setUnreadCount(unread);
-      }
-    },
-    (error) => {
       console.error("Error cargando notificaciones", error);
     }
-  );
+  }, [isAuthenticated]);
 
-  // Recargar conteo cuando trigger cambie (actualizaciones en tiempo real)
   useEffect(() => {
-    if (trigger > 0) {
-      loadUnreadCount();
-    }
-  }, [trigger]);
+    loadUnreadCount();
+  }, [loadUnreadCount, trigger]);
 
-  const handleLogout = () => {
-    authService.logout();
+  const handleLogout = async () => {
+    closeMenu();
+    await logout();
     navigate("/login", { replace: true });
   };
 
   const toggleMenu = () => setMenuOpen((prev) => !prev);
   const closeMenu = () => setMenuOpen(false);
-
-  const isAdmin = currentUser?.role === "ADMIN";
 
   return (
     <nav className="navbar">
@@ -165,7 +130,7 @@ const Navbar = () => {
 
         <li className="navbar__logout">
           <button
-            onClick={() => { handleLogout(); closeMenu(); }}
+            onClick={handleLogout}
             className="navbar__link navbar__link--logout"
           >
             Cerrar Sesión

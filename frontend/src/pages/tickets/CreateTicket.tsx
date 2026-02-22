@@ -2,21 +2,20 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import TicketForm from "./TicketForm";
 import { ticketApi } from "../../services/ticketApi";
-import { authService } from "../../services/auth";
+import { useAuth } from "../../context/AuthContext";
 import type { CreateTicketDTO } from "../../types/ticket";
 import { useNotifications } from "../../context/NotificacionContext";
 import "./CreateTicket.css";
 
 const CreateTicket = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { refreshUnread } = useNotifications();
   const [error, setError] = useState("");
 
   const handleCreate = async (data: Omit<CreateTicketDTO, "user_id">) => {
     try {
-      const currentUser = authService.getCurrentUser();
-
-      if (!currentUser) {
+      if (!user) {
         setError("Debes iniciar sesión para crear un ticket");
         navigate("/login");
         return;
@@ -24,7 +23,7 @@ const CreateTicket = () => {
 
       const ticketData: CreateTicketDTO = {
         ...data,
-        user_id: currentUser.id,
+        user_id: user.id,
       };
 
       await ticketApi.createTicket(ticketData);

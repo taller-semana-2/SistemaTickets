@@ -33,8 +33,7 @@ Define las rutas de la API REST.
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenRefreshView
-from .views import HealthCheckView, AuthViewSet
+from .views import HealthCheckView, AuthViewSet, CookieTokenRefreshView
 
 # Router para ViewSets
 router = DefaultRouter()
@@ -52,6 +51,8 @@ urlpatterns = [
     
     # Ruta custom para login (usando action)
     path('auth/login/', AuthViewSet.as_view({'post': 'login'}), name='auth-login'),
-    path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/me/', AuthViewSet.as_view({'get': 'me'}), name='auth-me'),
+    path('auth/logout/', AuthViewSet.as_view({'post': 'logout'}), name='auth-logout'),
+    path('auth/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),
 ]
 

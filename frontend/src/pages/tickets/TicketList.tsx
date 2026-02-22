@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { useFetch } from '../../hooks/useFetchOnce';
+import { useEffect, useState } from 'react';
 import { ticketApi } from '../../services/ticketApi';
-import { authService } from '../../services/auth';
+import { useAuth } from '../../context/AuthContext';
 import type { Ticket, TicketPriority } from '../../types/ticket';
 import TicketItem from './TicketItem';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -9,27 +8,28 @@ import { LoadingState, EmptyState, PageHeader } from '../../components/common';
 import './TicketList.css';
 
 const TicketList = () => {
+  const { user } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  useFetch(
-    (signal) => ticketApi.getTickets(signal),
-    (data) => {
-      const currentUser = authService.getCurrentUser();
-      if (currentUser && currentUser.role === 'USER') {
-        const userTickets = data.filter(ticket => ticket.user_id === currentUser.id);
-        setTickets(userTickets);
-      } else {
-        setTickets(data);
-      }
-      setLoading(false);
-    },
-    (error) => {
-      console.error('Error al cargar tickets:', error);
-      setLoading(false);
-    }
-  );
+  useEffect(() => {
+    ticketApi.getTickets()
+      .then((data) => {
+        if (user && user.role === 'USER') {
+          const userTickets = data.filter(ticket => String(ticket.user_id) === String(user.id));
+          setTickets(userTickets);
+        } else {
+          setTickets(data);
+        }
+      })
+      .catch((error) => {
+        console.error('Error al cargar tickets:', error);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   const handleDelete = (id: number) => {
     setDeleteId(id);
@@ -85,8 +85,7 @@ const TicketList = () => {
     return <LoadingState message="Cargando tickets..." />;
   }
 
-  const currentUser = authService.getCurrentUser();
-  const isUser = currentUser?.role === 'USER';
+  const isUser = user?.role === 'USER';
   const pageTitle = isUser ? 'Mis Tickets' : 'Panel de Tickets';
 
   return (

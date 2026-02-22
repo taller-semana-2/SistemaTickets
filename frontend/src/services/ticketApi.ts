@@ -11,26 +11,25 @@ export const ticketApi = {
   /**
    * Obtener todos los tickets
    */
-  getTickets: async (signal?: AbortSignal): Promise<Ticket[]> => {
-    const { data } = await ticketApiClient.get<Ticket[]>('/tickets/', { signal });
+  getTickets: async (): Promise<Ticket[]> => {
+    const { data } = await ticketApiClient.get<Ticket[]>('/tickets/');
     return data;
   },
 
   /**
    * Obtener un ticket por ID
    */
-  getTicket: async (id: number, signal?: AbortSignal): Promise<Ticket> => {
-    const { data } = await ticketApiClient.get<Ticket>(`/tickets/${id}/`, { signal });
+  getTicket: async (id: number): Promise<Ticket> => {
+    const { data } = await ticketApiClient.get<Ticket>(`/tickets/${id}/`);
     return data;
   },
 
   /**
    * Obtener respuestas de un ticket ordenadas cronológicamente (ascendente)
    */
-  getResponses: async (ticketId: number, signal?: AbortSignal): Promise<TicketResponse[]> => {
+  getResponses: async (ticketId: number): Promise<TicketResponse[]> => {
     const { data } = await ticketApiClient.get<TicketResponse[]>(
-      `/tickets/${ticketId}/responses/`,
-      { signal }
+      `/tickets/${ticketId}/responses/`
     );
     return data;
   },
@@ -38,26 +37,25 @@ export const ticketApi = {
   /**
    * Crear un nuevo ticket
    */
-  createTicket: async (ticketData: CreateTicketDTO, signal?: AbortSignal): Promise<Ticket> => {
-    const { data } = await ticketApiClient.post<Ticket>('/tickets/', ticketData, { signal });
+  createTicket: async (ticketData: CreateTicketDTO): Promise<Ticket> => {
+    const { data } = await ticketApiClient.post<Ticket>('/tickets/', ticketData);
     return data;
   },
 
   /**
    * Eliminar un ticket
    */
-  deleteTicket: async (id: number, signal?: AbortSignal): Promise<void> => {
-    await ticketApiClient.delete(`/tickets/${id}/`, { signal });
+  deleteTicket: async (id: number): Promise<void> => {
+    await ticketApiClient.delete(`/tickets/${id}/`);
   },
 
   /**
    * Actualizar el estado de un ticket
    */
-  updateStatus: async (id: number, status: string, signal?: AbortSignal): Promise<Ticket> => {
+  updateStatus: async (id: number, status: string): Promise<Ticket> => {
     const { data } = await ticketApiClient.patch<Ticket>(
       `/tickets/${id}/status/`,
-      { status },
-      { signal }
+      { status }
     );
     return data;
   },
@@ -68,30 +66,24 @@ export const ticketApi = {
    * @param id      - ID del ticket
    * @param payload - Prioridad nueva y justificación opcional
    */
-  updatePriority: async (id: number, payload: UpdatePriorityDTO, signal?: AbortSignal): Promise<Ticket> => {
+  updatePriority: async (id: number, payload: UpdatePriorityDTO): Promise<Ticket> => {
     const { data } = await ticketApiClient.patch<Ticket>(
       `/tickets/${id}/priority/`,
-      payload,
-      { signal }
+      payload
     );
     return data;
   },
 
   /**
-   * Crear una respuesta de administrador a un ticket.
-   * POST /tickets/:id/responses/
-   * Incluye admin_id desde la sesión activa para respetar el contrato del
-   * serializer del backend (`admin_id` requerido).
+   * Create an admin response on a ticket.
+   * @param ticketId - Target ticket ID
+   * @param text - Response text
+   * @param adminId - Admin user ID (from useAuth context)
    */
-  createResponse: async (ticketId: number, text: string, signal?: AbortSignal): Promise<TicketResponse> => {
-    // El admin_id viene de la sesión activa; el backend también lo recibe
-    // vía cabecera X-User-Id pero el serializer lo espera en el cuerpo.
-    const raw = localStorage.getItem('ticketSystem_user');
-    const adminId: string = raw ? (JSON.parse(raw) as { id?: string }).id ?? '' : '';
+  createResponse: async (ticketId: number, text: string, adminId: string): Promise<TicketResponse> => {
     const { data } = await ticketApiClient.post<TicketResponse>(
       `/tickets/${ticketId}/responses/`,
-      { text, admin_id: adminId },
-      { signal }
+      { text, admin_id: adminId }
     );
     return data;
   },

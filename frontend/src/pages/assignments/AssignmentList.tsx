@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useFetch } from '../../hooks/useFetchOnce';
+import { useEffect, useState } from 'react';
 import { assignmentsApi } from '../../services/assignment';
 import { ticketApi } from '../../services/ticketApi';
 import { LoadingState, EmptyState, PageHeader } from '../../components/common';
@@ -21,38 +20,44 @@ const AssignmentList = () => {
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  /**
-   * Carga asignaciones y tickets en paralelo con AbortSignal
-   */
-  useFetch(
-    async (signal) => {
+  const loadAssignments = async () => {
+    try {
+      setLoading(true);
+      
       // Fetch both assignments and active tickets concurrently
       const [assignmentsData, ticketsData] = await Promise.all([
-        assignmentsApi.getAssignments(signal),
-        ticketApi.getTickets(signal)
+        assignmentsApi.getAssignments(),
+        ticketApi.getTickets()
       ]);
 
       // Filter out assignments for tickets that don't exist anymore
       const activeTicketIds = new Set(ticketsData.map(t => t.id.toString()));
       const validAssignments = assignmentsData.filter(a => activeTicketIds.has(a.ticket_id.toString()));
 
-      return validAssignments;
-    },
-    (validAssignments) => {
+      // Build a set of closed ticket IDs to pre-mark as completed
+      const closedTicketIds = new Set(
+        ticketsData
+          .filter(t => t.status === 'CLOSED')
+          .map(t => t.id.toString())
+      );
+
       setAssignments(
         validAssignments.map((a) => ({
           ...a,
           managing: false,
-          completed: false,
+          completed: closedTicketIds.has(a.ticket_id.toString()),
         }))
       );
-      setLoading(false);
-    },
-    (error) => {
+    } catch (error) {
       console.error('Error cargando asignaciones', error);
+    } finally {
       setLoading(false);
     }
-  );
+  };
+
+  useEffect(() => {
+    loadAssignments();
+  }, []);
 
   const handleManage = (id: number) => {
     setAssignments((prev) =>
@@ -60,12 +65,32 @@ const AssignmentList = () => {
     );
   };
 
-  const handleComplete = (id: number) => {
-    setAssignments((prev) =>
-      prev.map((a) =>
-        a.id === id ? { ...a, completed: true, managing: false } : a
-      )
-    );
+  const handleComplete = async (id: number) => {
+    const assignment = assignments.find((a) => a.id === id);
+    if (!assignment) return;
+
+    try {
+      // Fetch current ticket to check its status
+      const ticket = await ticketApi.getTicket(assignment.ticket_id);
+
+      // Domain rule: OPEN → IN_PROGRESS → CLOSED (must follow this order)
+      if (ticket.status === 'OPEN') {
+        await ticketApi.updateStatus(assignment.ticket_id, 'IN_PROGRESS');
+      }
+
+      if (ticket.status !== 'CLOSED') {
+        await ticketApi.updateStatus(assignment.ticket_id, 'CLOSED');
+      }
+
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, completed: true, managing: false } : a
+        )
+      );
+    } catch (error) {
+      console.error('Error al marcar como realizada:', error);
+      alert('No se pudo cerrar el ticket asociado. Intenta de nuevo.');
+    }
   };
 
   const handleAssign = async (assignmentId: number, userId: string) => {
