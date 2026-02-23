@@ -19,7 +19,7 @@ export const ticketApi = {
   /**
    * Obtener un ticket por ID
    */
-  getTicket: async (id: number): Promise<Ticket> => {
+  getTicket: async (id: string | number): Promise<Ticket> => {
     const { data } = await ticketApiClient.get<Ticket>(`/tickets/${id}/`);
     return data;
   },
@@ -52,7 +52,7 @@ export const ticketApi = {
   /**
    * Actualizar el estado de un ticket
    */
-  updateStatus: async (id: number, status: string): Promise<Ticket> => {
+  updateStatus: async (id: string | number, status: string): Promise<Ticket> => {
     const { data } = await ticketApiClient.patch<Ticket>(
       `/tickets/${id}/status/`,
       { status }

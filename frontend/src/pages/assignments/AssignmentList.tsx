@@ -70,16 +70,18 @@ const AssignmentList = () => {
     if (!assignment) return;
 
     try {
+      const { ticket_id } = assignment;
+
       // Fetch current ticket to check its status
-      const ticket = await ticketApi.getTicket(assignment.ticket_id);
+      const ticket = await ticketApi.getTicket(ticket_id);
 
       // Domain rule: OPEN → IN_PROGRESS → CLOSED (must follow this order)
       if (ticket.status === 'OPEN') {
-        await ticketApi.updateStatus(assignment.ticket_id, 'IN_PROGRESS');
+        await ticketApi.updateStatus(ticket_id, 'IN_PROGRESS');
       }
 
       if (ticket.status !== 'CLOSED') {
-        await ticketApi.updateStatus(assignment.ticket_id, 'CLOSED');
+        await ticketApi.updateStatus(ticket_id, 'CLOSED');
       }
 
       setAssignments((prev) =>
