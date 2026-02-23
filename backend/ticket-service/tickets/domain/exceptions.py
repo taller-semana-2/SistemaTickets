@@ -58,3 +58,13 @@ class ResponseTooLongError(DomainException):
     def __init__(self, max_length: int = 2000):
         self.max_length = max_length
         super().__init__(f"El texto de la respuesta no puede exceder {max_length} caracteres")
+
+
+class DangerousInputError(InvalidTicketData):
+    """Se lanza cuando un campo contiene HTML o scripts potencialmente peligrosos."""
+
+    def __init__(self, field: str) -> None:
+        self.field = field
+        super().__init__(
+            f"El campo '{field}' contiene caracteres HTML o scripts no permitidos"
+        )

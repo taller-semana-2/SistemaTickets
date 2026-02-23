@@ -27,6 +27,7 @@ from .domain.exceptions import (
     DomainException,
     TicketAlreadyClosed,
     InvalidTicketData,
+    DangerousInputError,
     EmptyResponseError,
     InvalidPriorityTransition,
 )
