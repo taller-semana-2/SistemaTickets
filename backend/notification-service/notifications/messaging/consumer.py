@@ -4,6 +4,15 @@ Este módulo implementa un consumidor standalone que escucha eventos
 publicados en un exchange fanout de RabbitMQ y crea registros de
 notificación en la base de datos del notification-service.
 
+Incluye:
+
+- **Dead Letter Queue (DLQ):** Los mensajes que fallan en el procesamiento
+  son rechazados (``basic_nack(requeue=False)``) y enrutados automáticamente
+  a una cola de dead-letter vía un Dead Letter Exchange (DLX) para
+  inspección o reprocesamiento posterior.
+- **Reconexión automática:** Backoff exponencial configurable ante pérdida
+  de conexión con el broker.
+
 Eventos soportados:
     - ``ticket.response_added``: Delegado a
       :class:`~notifications.application.use_cases.CreateNotificationFromResponseUseCase`.
@@ -35,6 +44,8 @@ django.setup()
 
 import pika
 import json
+from typing import Any
+
 from notifications.models import Notification
 from notifications.application.use_cases import (
     CreateNotificationFromResponseUseCase,
@@ -55,6 +66,11 @@ INITIAL_RETRY_DELAY: int = int(os.environ.get('RABBITMQ_INITIAL_RETRY_DELAY', '1
 MAX_RETRY_DELAY: int = int(os.environ.get('RABBITMQ_MAX_RETRY_DELAY', '60'))
 RETRY_BACKOFF_FACTOR: int = int(os.environ.get('RABBITMQ_RETRY_BACKOFF_FACTOR', '2'))
 MAX_RETRIES: int = int(os.environ.get('RABBITMQ_MAX_RETRIES', '0'))  # 0 = infinite
+
+# Dead Letter Queue naming suffixes
+DLX_SUFFIX: str = ".dlx"
+DLQ_SUFFIX: str = ".dlq"
+DLQ_ROUTING_KEY_SUFFIX: str = ".dead"
 
 def _handle_response_added(data: dict) -> None:
     """Procesa un evento ``ticket.response_added`` mediante el caso de uso.
@@ -142,12 +158,54 @@ def callback(ch, method, properties, body):
             _handle_response_added(data)
         else:
             _handle_ticket_created(data)
+        ch.basic_ack(delivery_tag=method.delivery_tag)
     except InvalidEventSchema as exc:
         logger.error("Invalid event schema for %s: %s", event_type, exc)
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
     except Exception as exc:
         logger.error("Error processing event %s: %s", event_type, exc)
-    finally:
-        ch.basic_ack(delivery_tag=method.delivery_tag)
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
+
+def _setup_dead_letter_queue(channel: Any, queue_name: str) -> dict[str, str]:
+    """Declare the Dead Letter Exchange (DLX) and Dead Letter Queue (DLQ).
+
+    Creates a direct DLX exchange, a durable DLQ, and binds them together.
+    Returns the ``arguments`` dict to pass to the main queue's
+    ``queue_declare`` so that rejected messages are routed to the DLQ.
+
+    Args:
+        channel: The pika channel to declare resources on.
+        queue_name: Name of the main queue (used to derive DLQ names).
+
+    Returns:
+        Dict with ``x-dead-letter-exchange`` and ``x-dead-letter-routing-key``
+        keys, ready to be passed as ``arguments`` to ``queue_declare``.
+    """
+    dlx_name: str = f"{queue_name}{DLX_SUFFIX}"
+    dlq_name: str = f"{queue_name}{DLQ_SUFFIX}"
+    dlq_routing_key: str = f"{queue_name}{DLQ_ROUTING_KEY_SUFFIX}"
+
+    channel.exchange_declare(
+        exchange=dlx_name, exchange_type='direct', durable=True,
+    )
+    logger.info("Dead Letter Exchange declared: %s", dlx_name)
+
+    channel.queue_declare(queue=dlq_name, durable=True)
+    logger.info("Dead Letter Queue declared: %s", dlq_name)
+
+    channel.queue_bind(
+        queue=dlq_name, exchange=dlx_name, routing_key=dlq_routing_key,
+    )
+    logger.info(
+        "DLQ bound to DLX: %s -> %s (routing_key=%s)",
+        dlq_name, dlx_name, dlq_routing_key,
+    )
+
+    return {
+        'x-dead-letter-exchange': dlx_name,
+        'x-dead-letter-routing-key': dlq_routing_key,
+    }
 
 
 def _safe_close(connection: pika.BlockingConnection) -> None:
@@ -198,11 +256,18 @@ def start_consuming() -> None:
 
             # Declare exchange
             channel.exchange_declare(
-                exchange=EXCHANGE_NAME, exchange_type='fanout', durable=True
+                exchange=EXCHANGE_NAME, exchange_type='fanout', durable=True,
             )
 
-            # Create durable queue for notifications
-            channel.queue_declare(queue=QUEUE_NAME, durable=True)
+            # Dead Letter Exchange / Queue setup
+            dlq_args = _setup_dead_letter_queue(channel, QUEUE_NAME)
+
+            # Create durable queue for notifications with DLX arguments
+            channel.queue_declare(
+                queue=QUEUE_NAME,
+                durable=True,
+                arguments=dlq_args,
+            )
 
             # Bind queue to exchange
             channel.queue_bind(exchange=EXCHANGE_NAME, queue=QUEUE_NAME)
