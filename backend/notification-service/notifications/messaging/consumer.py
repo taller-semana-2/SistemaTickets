@@ -23,6 +23,8 @@ Ejemplo de uso::
 import os
 import sys
 import django
+import logging
+import time
 
 # Agregar directorio base al path
 base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -33,7 +35,6 @@ django.setup()
 
 import pika
 import json
-import logging
 from notifications.models import Notification
 from notifications.application.use_cases import (
     CreateNotificationFromResponseUseCase,
@@ -49,6 +50,11 @@ RABBIT_HOST = os.environ.get('RABBITMQ_HOST')
 EXCHANGE_NAME = os.environ.get('RABBITMQ_EXCHANGE_NAME')
 QUEUE_NAME = os.environ.get('RABBITMQ_QUEUE_NOTIFICATION')
 
+# Reconnection configuration
+INITIAL_RETRY_DELAY: int = int(os.environ.get('RABBITMQ_INITIAL_RETRY_DELAY', '1'))
+MAX_RETRY_DELAY: int = int(os.environ.get('RABBITMQ_MAX_RETRY_DELAY', '60'))
+RETRY_BACKOFF_FACTOR: int = int(os.environ.get('RABBITMQ_RETRY_BACKOFF_FACTOR', '2'))
+MAX_RETRIES: int = int(os.environ.get('RABBITMQ_MAX_RETRIES', '0'))  # 0 = infinite
 
 def _handle_response_added(data: dict) -> None:
     """Procesa un evento ``ticket.response_added`` mediante el caso de uso.
@@ -144,41 +150,132 @@ def callback(ch, method, properties, body):
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
 
-def start_consuming():
-    """Inicia el consumidor RabbitMQ para el servicio de notificaciones.
+def _safe_close(connection: pika.BlockingConnection) -> None:
+    """Attempt to close the RabbitMQ connection gracefully.
 
-    Establece una conexión bloqueante con RabbitMQ, declara el exchange
-    de tipo fanout y la cola durable para notificaciones, vincula la cola
-    al exchange y comienza a consumir mensajes de forma indefinida.
+    Silently handles any exception during close to avoid masking
+    the original error that triggered the reconnection.
 
-    La función es bloqueante: una vez invocada, el proceso permanece
-    escuchando mensajes hasta que se interrumpa manualmente o se pierda
-    la conexión.
+    Args:
+        connection: The pika BlockingConnection to close.
+    """
+    try:
+        if connection and connection.is_open:
+            connection.close()
+    except Exception:
+        pass
+
+def start_consuming() -> None:
+    """Start the RabbitMQ consumer for the notification service with auto-reconnection.
+
+    Establishes a blocking connection to RabbitMQ, declares the fanout
+    exchange and durable queue, and begins consuming messages indefinitely.
+
+    If the connection is lost, the consumer automatically retries with
+    exponential backoff. The delay between retries follows the formula:
+
+        delay = min(INITIAL_RETRY_DELAY * (RETRY_BACKOFF_FACTOR ** attempt), MAX_RETRY_DELAY)
+
+    Configuration is read from environment variables:
+        - RABBITMQ_INITIAL_RETRY_DELAY (default: 1)
+        - RABBITMQ_MAX_RETRY_DELAY (default: 60)
+        - RABBITMQ_RETRY_BACKOFF_FACTOR (default: 2)
+        - RABBITMQ_MAX_RETRIES (default: 0, meaning infinite)
 
     Raises:
-        pika.exceptions.AMQPConnectionError: Si no se puede conectar
-            al servidor RabbitMQ en ``RABBITMQ_HOST``.
-
-    Note:
-        No implementa lógica de reconexión automática. Si la conexión
-        se pierde, el proceso terminará con una excepción.
+        SystemExit: If MAX_RETRIES > 0 and all retries are exhausted.
     """
-    connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBIT_HOST))
-    channel = connection.channel()
-    
-    # Declarar exchange
-    channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type='fanout', durable=True)
-    
-    # Crear cola exclusiva para notificaciones
-    channel.queue_declare(queue=QUEUE_NAME, durable=True)
-    
-    # Vincular cola al exchange
-    channel.queue_bind(exchange=EXCHANGE_NAME, queue=QUEUE_NAME)
-    
-    channel.basic_consume(queue=QUEUE_NAME, on_message_callback=callback)
-    print(f'[NOTIFICATION] Consumer started, waiting messages on queue "{QUEUE_NAME}"...')
-    channel.start_consuming()
+    connection = None
+    attempt = 0
 
+    while True:
+        try:
+            logger.info("Connecting to RabbitMQ at %s...", RABBIT_HOST)
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=RABBIT_HOST)
+            )
+            channel = connection.channel()
+
+            # Declare exchange
+            channel.exchange_declare(
+                exchange=EXCHANGE_NAME, exchange_type='fanout', durable=True
+            )
+
+            # Create durable queue for notifications
+            channel.queue_declare(queue=QUEUE_NAME, durable=True)
+
+            # Bind queue to exchange
+            channel.queue_bind(exchange=EXCHANGE_NAME, queue=QUEUE_NAME)
+
+            channel.basic_consume(
+                queue=QUEUE_NAME, on_message_callback=callback
+            )
+
+            if attempt > 0:
+                logger.info(
+                    "Successfully reconnected to RabbitMQ after %d attempt(s).",
+                    attempt,
+                )
+            logger.info(
+                'Consumer started, waiting for messages on queue "%s"...',
+                QUEUE_NAME,
+            )
+            attempt = 0  # Reset on successful connection
+            channel.start_consuming()
+
+        except (
+            pika.exceptions.AMQPConnectionError,
+            pika.exceptions.StreamLostError,
+            pika.exceptions.ConnectionClosedByBroker,
+            ConnectionResetError,
+        ) as exc:
+            attempt += 1
+            delay = min(
+                INITIAL_RETRY_DELAY * (RETRY_BACKOFF_FACTOR ** attempt),
+                MAX_RETRY_DELAY,
+            )
+            logger.warning(
+                "Connection lost (%s). Reconnection attempt %d in %.1fs...",
+                exc,
+                attempt,
+                delay,
+            )
+            _safe_close(connection)
+            time.sleep(delay)
+
+            if MAX_RETRIES > 0 and attempt >= MAX_RETRIES:
+                logger.critical(
+                    "Max reconnection attempts (%d) reached. Shutting down.",
+                    MAX_RETRIES,
+                )
+                sys.exit(1)
+
+        except KeyboardInterrupt:
+            logger.info("Consumer stopped by user.")
+            _safe_close(connection)
+            break
+
+        except Exception as exc:
+            attempt += 1
+            delay = min(
+                INITIAL_RETRY_DELAY * (RETRY_BACKOFF_FACTOR ** attempt),
+                MAX_RETRY_DELAY,
+            )
+            logger.error(
+                "Unexpected error (%s). Reconnection attempt %d in %.1fs...",
+                exc,
+                attempt,
+                delay,
+            )
+            _safe_close(connection)
+            time.sleep(delay)
+
+            if MAX_RETRIES > 0 and attempt >= MAX_RETRIES:
+                logger.critical(
+                    "Max reconnection attempts (%d) reached. Shutting down.",
+                    MAX_RETRIES,
+                )
+                sys.exit(1)
 
 if __name__ == '__main__':
     start_consuming()
