@@ -11,7 +11,7 @@ const Navbar = () => {
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user: currentUser, isAdmin, logout, isAuthenticated } = useAuth();
+  const { user: currentUser, isAdmin, logout, isAuthenticated, loading } = useAuth();
 
   const loadUnreadCount = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -25,8 +25,11 @@ const Navbar = () => {
   }, [isAuthenticated]);
 
   useEffect(() => {
+    // Solo cargar notificaciones si el usuario está autenticado y no está en estado de carga
+    if (!isAuthenticated || loading) return;
+    
     loadUnreadCount();
-  }, [loadUnreadCount, trigger]);
+  }, [loadUnreadCount, trigger, isAuthenticated, loading]);
 
   const handleLogout = async () => {
     closeMenu();
