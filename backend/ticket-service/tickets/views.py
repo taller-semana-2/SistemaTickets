@@ -27,6 +27,7 @@ from .domain.exceptions import (
     DomainException,
     TicketAlreadyClosed,
     InvalidTicketData,
+    DangerousInputError,
     EmptyResponseError,
     InvalidPriorityTransition,
 )
@@ -174,7 +175,12 @@ class TicketViewSet(viewsets.ModelViewSet):
         """
         new_priority = request.data.get("priority")
         justification = request.data.get("justification")
-        user_role = request.data.get("user_role")
+        # Read role from JWT token and map to the value the use case expects
+        jwt_role = ''
+        if hasattr(request.user, 'token'):
+            jwt_role = request.user.token.get('role', '')
+        # Map ADMIN role to 'Administrador' which the use case expects for authorization
+        user_role = 'Administrador' if jwt_role.upper() == 'ADMIN' else jwt_role
 
         # Validación de entrada HTTP
         if not new_priority:
@@ -285,8 +291,10 @@ class TicketViewSet(viewsets.ModelViewSet):
             denegado, o 404 si el ticket no existe.
         """
         # C4 — Validar visibilidad: solo creador del ticket o ADMIN
-        user_id: str = request.META.get("HTTP_X_USER_ID", "")
-        user_role: str = request.META.get("HTTP_X_USER_ROLE", "")
+        user_id: str = str(getattr(request.user, 'id', ''))
+        user_role: str = ''
+        if hasattr(request.user, 'token'):
+            user_role = request.user.token.get('role', '')
 
         is_admin = user_role.upper() == "ADMIN"
 
@@ -334,7 +342,9 @@ class TicketViewSet(viewsets.ModelViewSet):
             No lanza excepciones; todas se traducen a respuestas HTTP.
         """
         # C2 — Validar que el solicitante es ADMIN
-        user_role: str = request.META.get("HTTP_X_USER_ROLE", "")
+        user_role: str = ''
+        if hasattr(request.user, 'token'):
+            user_role = request.user.token.get('role', '')
         if user_role.upper() != "ADMIN":
             return Response(
                 {"error": "Solo los administradores pueden responder tickets"},

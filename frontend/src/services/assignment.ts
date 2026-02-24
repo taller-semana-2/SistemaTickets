@@ -20,20 +20,21 @@ const adaptAssignment = (apiData: AssignmentApiResponse): Assignment => ({
 });
 
 export const assignmentsApi = {
-  async getAssignments(): Promise<Assignment[]> {
-    const { data } = await assignmentApiClient.get<AssignmentApiResponse[]>('/assignments/');
+  async getAssignments(signal?: AbortSignal): Promise<Assignment[]> {
+    const { data } = await assignmentApiClient.get<AssignmentApiResponse[]>('/assignments/', { signal });
     return data.map(adaptAssignment);
   },
 
-  async deleteAssignment(id: number): Promise<void> {
-    await assignmentApiClient.delete(`/assignments/${id}/`);
+  async deleteAssignment(id: number, signal?: AbortSignal): Promise<void> {
+    await assignmentApiClient.delete(`/assignments/${id}/`, { signal });
   },
 
-  async assignUser(assignmentId: number, userId: string): Promise<Assignment> {
+  async assignUser(assignmentId: number, userId: string, signal?: AbortSignal): Promise<Assignment> {
     const payload: UpdateAssignedUserDTO = { assigned_to: userId };
     const { data } = await assignmentApiClient.patch<AssignmentApiResponse>(
       `/assignments/${assignmentId}/assign-user/`,
-      payload
+      payload,
+      { signal }
     );
     return adaptAssignment(data);
   },

@@ -27,7 +27,7 @@ if not SECRET_KEY:
     raise RuntimeError("USER_SERVICE_SECRET_KEY is not set")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
+DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() == "true"
 
 _allowed_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "")
 ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts.split(",") if host.strip()]
@@ -154,12 +154,18 @@ RABBITMQ_HOST = os.environ.get('RABBITMQ_HOST', 'rabbitmq')
 # ---------------------------------------------------------------------------
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'users.infrastructure.authentication.UsersServiceJWTAuthentication',
+        'users.infrastructure.cookie_authentication.CookieJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
 }
+
+# Disable Browsable API in production (security: prevents endpoint/model exposure)
+if not DEBUG:
+    REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = (
+        'rest_framework.renderers.JSONRenderer',
+    )
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
@@ -169,7 +175,7 @@ SIMPLE_JWT = {
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
     'ALGORITHM': 'HS256',
-    'ROTATE_REFRESH_TOKENS': True,
+    'ROTATE_REFRESH_TOKENS': False,
 }
 
 # CORS Configuration
@@ -190,3 +196,25 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-user-id",
     "x-user-role",
 ]
+
+# Cookie authentication support
+# ---------------------------------------------------------------------------
+CORS_ALLOW_CREDENTIALS = True  # Required for cross-origin cookie exchange
+
+# CSRF Trusted Origins — required when CORS_ALLOW_CREDENTIALS = True
+_csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]
+if not CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:5173',
+    ]
+
+# =============================================================================
+# Security hardening (production)
+# =============================================================================
+if not DEBUG:
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True

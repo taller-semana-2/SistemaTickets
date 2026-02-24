@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { assignmentsApi } from '../../services/assignment';
 import { ticketApi } from '../../services/ticketApi';
+import { userService } from '../../services/user';
 import { LoadingState, EmptyState, PageHeader } from '../../components/common';
 import type { Assignment } from '../../types/assignment';
+import type { TicketPriority } from '../../types/ticket';
+import { formatPriority } from '../tickets/priorityUtils';
 import TicketAssign from '../../components/TicketAssign';
 import ConfirmModal from '../../components/ConfirmModal';
 import './AssignmentList.css';
@@ -13,32 +16,65 @@ import './AssignmentList.css';
 interface UIAssignment extends Assignment {
   managing?: boolean;
   completed?: boolean;
+  /** Título del ticket asociado, resuelto en tiempo de carga. */
+  ticket_title?: string;
+}
+
+/**
+ * Normaliza un string de prioridad arbitrario al tipo {@link TicketPriority}.
+ * Acepta cualquier casing ('HIGH', 'high', 'High' → 'High').
+ *
+ * @param raw - Valor de prioridad crudo proveniente de la API
+ * @returns Valor normalizado compatible con {@link TicketPriority}
+ */
+function toPriorityKey(raw: string | undefined): TicketPriority {
+  if (!raw) return 'Unassigned';
+  const normalized = (raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase()) as TicketPriority;
+  const valid: TicketPriority[] = ['Unassigned', 'Low', 'Medium', 'High'];
+  return valid.includes(normalized) ? normalized : 'Unassigned';
 }
 
 const AssignmentList = () => {
   const [assignments, setAssignments] = useState<UIAssignment[]>([]);
+  const [agentMap, setAgentMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadAssignments = async () => {
     try {
       setLoading(true);
-      
-      // Fetch both assignments and active tickets concurrently
-      const [assignmentsData, ticketsData] = await Promise.all([
+
+      // Fetch assignments, tickets y agentes concurrentemente
+      const [assignmentsData, ticketsData, adminUsers] = await Promise.all([
         assignmentsApi.getAssignments(),
-        ticketApi.getTickets()
+        ticketApi.getTickets(),
+        userService.getAdminUsers().catch(() => []),
       ]);
+
+      // Mapa de id → título de ticket para enriquecer las tarjetas
+      const ticketTitleMap = new Map(ticketsData.map(t => [t.id.toString(), t.title]));
+
+      // Mapa de id → username de agente para resolver nombre en descripción
+      const newAgentMap = new Map(adminUsers.map(u => [u.id, u.username]));
+      setAgentMap(newAgentMap);
 
       // Filter out assignments for tickets that don't exist anymore
       const activeTicketIds = new Set(ticketsData.map(t => t.id.toString()));
       const validAssignments = assignmentsData.filter(a => activeTicketIds.has(a.ticket_id.toString()));
 
+      // Build a set of closed ticket IDs to pre-mark as completed
+      const closedTicketIds = new Set(
+        ticketsData
+          .filter(t => t.status === 'CLOSED')
+          .map(t => t.id.toString())
+      );
+
       setAssignments(
         validAssignments.map((a) => ({
           ...a,
           managing: false,
-          completed: false,
+          completed: closedTicketIds.has(a.ticket_id.toString()),
+          ticket_title: ticketTitleMap.get(a.ticket_id.toString()),
         }))
       );
     } catch (error) {
@@ -58,12 +94,34 @@ const AssignmentList = () => {
     );
   };
 
-  const handleComplete = (id: number) => {
-    setAssignments((prev) =>
-      prev.map((a) =>
-        a.id === id ? { ...a, completed: true, managing: false } : a
-      )
-    );
+  const handleComplete = async (id: number) => {
+    const assignment = assignments.find((a) => a.id === id);
+    if (!assignment) return;
+
+    try {
+      const { ticket_id } = assignment;
+
+      // Fetch current ticket to check its status
+      const ticket = await ticketApi.getTicket(ticket_id);
+
+      // Domain rule: OPEN → IN_PROGRESS → CLOSED (must follow this order)
+      if (ticket.status === 'OPEN') {
+        await ticketApi.updateStatus(ticket_id, 'IN_PROGRESS');
+      }
+
+      if (ticket.status !== 'CLOSED') {
+        await ticketApi.updateStatus(ticket_id, 'CLOSED');
+      }
+
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, completed: true, managing: false } : a
+        )
+      );
+    } catch (error) {
+      console.error('Error al marcar como realizada:', error);
+      alert('No se pudo cerrar el ticket asociado. Intenta de nuevo.');
+    }
   };
 
   const handleAssign = async (assignmentId: number, userId: string) => {
@@ -130,13 +188,20 @@ const AssignmentList = () => {
               className={`assignment-card ${item.completed ? 'completed' : ''}`}
             >
               <div className={`assignment-badge priority-${(item.priority || 'unassigned').toLowerCase()}`}>
-                {item.priority ? item.priority.charAt(0).toUpperCase() + item.priority.slice(1).toLowerCase() : 'Unassigned'}
+                {formatPriority(toPriorityKey(item.priority))}
               </div>
 
               <div className="assignment-content">
-                <h3 className="assignment-title">Ticket #{item.ticket_id}</h3>
+                <div className="assignment-ticket-header">
+                  <span className="assignment-ticket-id">#{item.ticket_id}</span>
+                  <h3 className="assignment-title">
+                    {item.ticket_title ?? `Ticket #${item.ticket_id}`}
+                  </h3>
+                </div>
                 <p className="assignment-message">
-                  <strong>Prioridad:</strong> {item.priority}
+                  {item.assigned_to
+                    ? `Asignación: ${agentMap.get(item.assigned_to) ?? item.assigned_to}`
+                    : 'No asignado'}
                 </p>
               </div>
 

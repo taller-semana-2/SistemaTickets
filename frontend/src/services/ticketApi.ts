@@ -19,7 +19,7 @@ export const ticketApi = {
   /**
    * Obtener un ticket por ID
    */
-  getTicket: async (id: number): Promise<Ticket> => {
+  getTicket: async (id: string | number): Promise<Ticket> => {
     const { data } = await ticketApiClient.get<Ticket>(`/tickets/${id}/`);
     return data;
   },
@@ -52,7 +52,7 @@ export const ticketApi = {
   /**
    * Actualizar el estado de un ticket
    */
-  updateStatus: async (id: number, status: string): Promise<Ticket> => {
+  updateStatus: async (id: string | number, status: string): Promise<Ticket> => {
     const { data } = await ticketApiClient.patch<Ticket>(
       `/tickets/${id}/status/`,
       { status }
@@ -75,16 +75,12 @@ export const ticketApi = {
   },
 
   /**
-   * Crear una respuesta de administrador a un ticket.
-   * POST /tickets/:id/responses/
-   * Incluye admin_id desde la sesión activa para respetar el contrato del
-   * serializer del backend (`admin_id` requerido).
+   * Create an admin response on a ticket.
+   * @param ticketId - Target ticket ID
+   * @param text - Response text
+   * @param adminId - Admin user ID (from useAuth context)
    */
-  createResponse: async (ticketId: number, text: string): Promise<TicketResponse> => {
-    // El admin_id viene de la sesión activa; el backend también lo recibe
-    // vía cabecera X-User-Id pero el serializer lo espera en el cuerpo.
-    const raw = localStorage.getItem('ticketSystem_user');
-    const adminId: string = raw ? (JSON.parse(raw) as { id?: string }).id ?? '' : '';
+  createResponse: async (ticketId: number, text: string, adminId: string): Promise<TicketResponse> => {
     const { data } = await ticketApiClient.post<TicketResponse>(
       `/tickets/${ticketId}/responses/`,
       { text, admin_id: adminId }

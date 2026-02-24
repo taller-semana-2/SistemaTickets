@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 import { ticketApi } from '../../services/ticketApi';
-import { authService } from '../../services/auth';
+import { useAuth } from '../../context/AuthContext';
 import type { Ticket, TicketPriority } from '../../types/ticket';
 import {
   ASSIGNABLE_PRIORITY_OPTIONS,
@@ -32,7 +32,7 @@ interface TicketPriorityManagerProps {
  * Renderiza null para usuarios sin rol ADMIN o tickets en estado CLOSED.
  */
 const TicketPriorityManager = ({ ticket, onUpdate }: TicketPriorityManagerProps) => {
-  const currentUser   = authService.getCurrentUser();
+  const { user: currentUser } = useAuth();
   const ticketHasPriority = hasAssignedPriority(ticket);
 
   // Hooks siempre antes del return condicional (regla de hooks de React).

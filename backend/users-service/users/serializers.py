@@ -78,13 +78,10 @@ class AuthUserSerializer(serializers.Serializer):
     is_active = serializers.BooleanField()
 
 
-class TokenPairSerializer(serializers.Serializer):
-    """Serializer de par de tokens JWT."""
-    access = serializers.CharField()
-    refresh = serializers.CharField()
-
-
 class AuthResponseSerializer(serializers.Serializer):
-    """Serializer de respuesta para login/registro con auto-login."""
+    """Serializer for login/register response.
+
+    NOTE: Tokens are no longer included in the response body.
+    They are set as HttpOnly cookies by the view layer.
+    """
     user = AuthUserSerializer()
-    tokens = TokenPairSerializer()

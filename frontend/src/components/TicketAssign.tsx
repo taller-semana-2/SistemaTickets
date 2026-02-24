@@ -12,6 +12,7 @@ interface TicketAssignProps {
 const TicketAssign = ({ ticketId, currentAssignedId, onAssign }: TicketAssignProps) => {
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>(currentAssignedId || '');
+  const [pendingAssignment, setPendingAssignment] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,10 +37,20 @@ const TicketAssign = ({ ticketId, currentAssignedId, onAssign }: TicketAssignPro
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const userId = e.target.value;
     setSelectedUserId(userId);
-    
-    if (onAssign) {
-      onAssign(userId);
+    // Marcar que hay una asignación pendiente solo si se selecciona un usuario válido
+    setPendingAssignment(userId !== '');
+  };
+
+  const handleConfirm = () => {
+    if (onAssign && selectedUserId) {
+      onAssign(selectedUserId);
+      setPendingAssignment(false);
     }
+  };
+
+  const handleCancel = () => {
+    setSelectedUserId(currentAssignedId || '');
+    setPendingAssignment(false);
   };
 
   if (loading) {
@@ -81,10 +92,30 @@ const TicketAssign = ({ ticketId, currentAssignedId, onAssign }: TicketAssignPro
         ))}
       </select>
       
+      {pendingAssignment && (
+        <div className="ticket-assign__actions">
+          <button
+            className="ticket-assign__btn ticket-assign__btn--confirm"
+            onClick={handleConfirm}
+            disabled={!selectedUserId}
+          >
+            Confirmar asignación
+          </button>
+          <button
+            className="ticket-assign__btn ticket-assign__btn--cancel"
+            onClick={handleCancel}
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+      
       {ticketId && (
         <p className="ticket-assign__info">
           {selectedUserId 
-            ? `Ticket #${ticketId} será asignado al administrador seleccionado`
+            ? pendingAssignment 
+              ? `Confirma para asignar Ticket #${ticketId} al administrador seleccionado`
+              : `Ticket #${ticketId} asignado`
             : 'Selecciona un administrador para asignar este ticket'
           }
         </p>

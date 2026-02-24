@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useNotifications } from '../context/NotificacionContext';
-import { authService } from '../services/auth';
+import { useAuth } from '../context/AuthContext';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,18 +35,6 @@ export interface UseSSEOptions {
 const SSE_BASE_URL =
   (import.meta.env.VITE_NOTIFICATION_BASE_URL as string | undefined) ?? 'http://localhost:8001';
 
-/**
- * Builds the SSE endpoint URL including the authenticated user's ID.
- * Pattern: /api/notifications/sse/<user_id>/
- * The user_id in the path acts as the identity claim for the MVP; the
- * backend filters events for that specific user.
- */
-const buildSSEEndpoint = (): string => {
-  const currentUser = authService.getCurrentUser();
-  const userId = currentUser?.id ?? '';
-  return `${SSE_BASE_URL}/api/notifications/sse/${userId}/`;
-};
-
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -67,6 +55,7 @@ const buildSSEEndpoint = (): string => {
  */
 export const useSSE = (options?: UseSSEOptions): void => {
   const { refreshUnread } = useNotifications();
+  const { isAuthenticated, user } = useAuth();
 
   // Guardamos las últimas opciones en un ref para no necesitar incluirlas
   // como dependencias del effect (evita reconexiones innecesarias).
@@ -103,11 +92,21 @@ export const useSSE = (options?: UseSSEOptions): void => {
   }, []);
 
   useEffect(() => {
-    if (!authService.isAuthenticated()) return;
+    if (!isAuthenticated || user?.id === undefined) return;
 
     let intentionalClose = false;
 
-    const sseEndpoint = buildSSEEndpoint();
+    /**
+     * Builds the SSE endpoint URL including the authenticated user's ID.
+     * Pattern: /api/notifications/sse/<user_id>/
+     * The user_id in the path acts as the identity claim for the MVP; the
+     * backend filters events for that specific user.
+     */
+    const buildSSEEndpoint = (userId: string): string => {
+      return `${SSE_BASE_URL}/api/notifications/sse/${userId}/`;
+    };
+
+    const sseEndpoint = buildSSEEndpoint(user.id);
     const es = new EventSource(sseEndpoint);
 
     es.addEventListener('notification', handleNotification);
@@ -123,5 +122,5 @@ export const useSSE = (options?: UseSSEOptions): void => {
       intentionalClose = true;
       es.close();
     };
-  }, [handleNotification]);
+  }, [handleNotification, isAuthenticated, user]);
 };

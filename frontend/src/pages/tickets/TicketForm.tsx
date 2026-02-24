@@ -22,8 +22,9 @@ const TicketForm = ({ onSubmit }: Props) => {
   return (
     <form onSubmit={handleSubmit} className="ticket-form">
       <div className="form-group">
-      <label className="form-label">Título</label>
+      <label className="form-label" htmlFor="ticket-title">Título</label>
       <input
+        id="ticket-title"
         type="text"
         className="form-input"
         value={title}
@@ -33,8 +34,9 @@ const TicketForm = ({ onSubmit }: Props) => {
       </div>
 
       <div className="form-group">
-      <label className="form-label">Descripción</label>
+      <label className="form-label" htmlFor="ticket-description">Descripción</label>
       <textarea
+        id="ticket-description"
         className="form-textarea"
         value={description}
         onChange={(e) => setDescription(e.target.value)}

@@ -7,6 +7,7 @@ JSON expuestas por la API REST.
 
 from rest_framework import serializers
 from .models import Ticket, TicketResponse
+from .domain.factories import _contains_dangerous_html
 
 
 class TicketSerializer(serializers.ModelSerializer):
@@ -27,6 +28,50 @@ class TicketSerializer(serializers.ModelSerializer):
         campos. Si se agregan campos sensibles al modelo en el futuro,
         se debe migrar a una lista explícita de campos.
     """
+
+    def validate_title(self, value: str) -> str:
+        """
+        Valida que el título no contenga HTML o scripts peligrosos.
+        
+        Esta validación es una capa defensiva adicional. La validación principal
+        ocurre en la capa de dominio (TicketFactory).
+        
+        Args:
+            value: Título a validar
+            
+        Returns:
+            El valor validado
+            
+        Raises:
+            serializers.ValidationError: Si el título contiene caracteres peligrosos
+        """
+        if _contains_dangerous_html(value):
+            raise serializers.ValidationError(
+                "El título contiene caracteres HTML o scripts no permitidos"
+            )
+        return value
+    
+    def validate_description(self, value: str) -> str:
+        """
+        Valida que la descripción no contenga HTML o scripts peligrosos.
+        
+        Esta validación es una capa defensiva adicional. La validación principal
+        ocurre en la capa de dominio (TicketFactory).
+        
+        Args:
+            value: Descripción a validar
+            
+        Returns:
+            El valor validado
+            
+        Raises:
+            serializers.ValidationError: Si la descripción contiene caracteres peligrosos
+        """
+        if _contains_dangerous_html(value):
+            raise serializers.ValidationError(
+                "La descripción contiene caracteres HTML o scripts no permitidos"
+            )
+        return value
 
     class Meta:
         model = Ticket
